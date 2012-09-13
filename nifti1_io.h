@@ -3,8 +3,8 @@
            - Written by Bob Cox, SSCC NIMH
            - Revisions by Rick Reynolds, SSCC NIMH
  */
-#ifndef _NIFTI_IO_HEADER_
-#define _NIFTI_IO_HEADER_
+#ifndef _NIFTI_IO_HEADER_3
+#define _NIFTI_IO_HEADER_3
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,18 +12,16 @@
 #include <math.h>
 #include <ctype.h>
 
-#ifndef DONT_INCLUDE_ANALYZE_STRUCT
-#define DONT_INCLUDE_ANALYZE_STRUCT  /*** not needed herein ***/
-#endif
-#include "nifti1.h"                  /*** NIFTI-1 header specification ***/
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
+using namespace Eigen;
 
 #include <znzlib.h>
 
-/*=================*/
-#ifdef  __cplusplus
-extern "C" {
-#endif
-/*=================*/
+#include "nifti1.h"                  /*** NIFTI-1 header specification ***/
+
+
 
 /*****===================================================================*****/
 /*****         File nifti1_io.h == Declarations for nifti1_io.c          *****/
@@ -52,16 +50,6 @@ extern "C" {
 
       Modified and added many routines for I/O.
 */
-
-/********************** Some sample data structures **************************/
-
-typedef struct {                   /** 4x4 matrix struct **/
-  float m[4][4] ;
-} mat44 ;
-
-typedef struct {                   /** 3x3 matrix struct **/
-  float m[3][3] ;
-} mat33 ;
 
 /*...........................................................................*/
 
@@ -133,11 +121,11 @@ typedef struct {                /*!< Image storage struct **/
         qoffset_x , qoffset_y , qoffset_z ,
         qfac      ;
 
-  mat44 qto_xyz ;               /*!< qform: transform (i,j,k) to (x,y,z) */
-  mat44 qto_ijk ;               /*!< qform: transform (x,y,z) to (i,j,k) */
+  Matrix4d qto_xyz ;               /*!< qform: transform (i,j,k) to (x,y,z) */
+  Matrix4d qto_ijk ;               /*!< qform: transform (x,y,z) to (i,j,k) */
 
-  mat44 sto_xyz ;               /*!< sform: transform (i,j,k) to (x,y,z) */
-  mat44 sto_ijk ;               /*!< sform: transform (x,y,z) to (i,j,k) */
+  Matrix4d sto_xyz ;               /*!< sform: transform (i,j,k) to (x,y,z) */
+  Matrix4d sto_ijk ;               /*!< sform: transform (x,y,z) to (i,j,k) */
 
   float toffset ;               /*!< time coordinate offset */
 
@@ -244,23 +232,14 @@ typedef struct {
 /*****************************************************************************/
 /*--------------- Prototypes of functions defined in this file --------------*/
 
-char *nifti_datatype_string   ( int dt ) ;
-char *nifti_units_string      ( int uu ) ;
-char *nifti_intent_string     ( int ii ) ;
-char *nifti_xform_string      ( int xx ) ;
-char *nifti_slice_string      ( int ss ) ;
-char *nifti_orientation_string( int ii ) ;
+const char *nifti_datatype_string   ( int dt ) ;
+const char *nifti_units_string      ( int uu ) ;
+const char *nifti_intent_string     ( int ii ) ;
+const char *nifti_xform_string      ( int xx ) ;
+const char *nifti_slice_string      ( int ss ) ;
+const char *nifti_orientation_string( int ii ) ;
 
 int   nifti_is_inttype( int dt ) ;
-
-mat44 nifti_mat44_inverse( mat44 R ) ;
-
-mat33 nifti_mat33_inverse( mat33 R ) ;
-mat33 nifti_mat33_polar  ( mat33 A ) ;
-float nifti_mat33_rownorm( mat33 A ) ;
-float nifti_mat33_colnorm( mat33 A ) ;
-float nifti_mat33_determ ( mat33 R ) ;
-mat33 nifti_mat33_mul    ( mat33 A , mat33 B ) ;
 
 void  nifti_swap_2bytes ( size_t n , void *ar ) ;
 void  nifti_swap_4bytes ( size_t n , void *ar ) ;
@@ -270,7 +249,7 @@ void  nifti_swap_Nbytes ( size_t n , int siz , void *ar ) ;
 
 int    nifti_datatype_is_valid   (int dtype, int for_nifti);
 int    nifti_datatype_from_string(const char * name);
-char * nifti_datatype_to_string  (int dtype);
+const char * nifti_datatype_to_string  (int dtype);
 
 int   nifti_get_filesize( const char *pathname ) ;
 void  swap_nifti_header ( struct nifti_1_header *h , int is_nifti ) ;
@@ -305,7 +284,7 @@ void         nifti_image_infodump( const nifti_image * nim ) ;
 
 void         nifti_disp_lib_hist( void ) ;     /* to display library history */
 void         nifti_disp_lib_version( void ) ;  /* to display library version */
-int          nifti_disp_matrix_orient( const char * mesg, mat44 mat );
+int          nifti_disp_matrix_orient( const char * mesg, Matrix4d mat );
 int          nifti_disp_type_list( int which );
 
 
@@ -353,19 +332,6 @@ znzFile nifti_write_ascii_image(nifti_image *nim, const nifti_brick_list * NBL,
 
 void nifti_datatype_sizes( int datatype , int *nbyper, int *swapsize ) ;
 
-void nifti_mat44_to_quatern( mat44 R ,
-                             float *qb, float *qc, float *qd,
-                             float *qx, float *qy, float *qz,
-                             float *dx, float *dy, float *dz, float *qfac ) ;
-
-mat44 nifti_quatern_to_mat44( float qb, float qc, float qd,
-                              float qx, float qy, float qz,
-                              float dx, float dy, float dz, float qfac );
-
-mat44 nifti_make_orthog_mat44( float r11, float r12, float r13 ,
-                               float r21, float r22, float r23 ,
-                               float r31, float r32, float r33  ) ;
-
 int nifti_short_order(void) ;              /* CPU byte order */
 
 
@@ -378,7 +344,7 @@ int nifti_short_order(void) ;              /* CPU byte order */
 #define NIFTI_I2S  5    /* Inferior to Superior  */
 #define NIFTI_S2I  6    /* Superior to Inferior  */
 
-void nifti_mat44_to_orientation( mat44 R , int *icod, int *jcod, int *kcod ) ;
+void nifti_matrix4d_to_orientation( Matrix4d R , int *icod, int *jcod, int *kcod ) ;
 
 /*--------------------- Low level IO routines ------------------------------*/
 
@@ -493,7 +459,7 @@ typedef struct {
     int    type;           /* should match the NIFTI_TYPE_ #define */
     int    nbyper;         /* bytes per value, matches nifti_image */
     int    swapsize;       /* bytes per swap piece, matches nifti_image */
-    char * name;           /* text string to match #define */
+    const char * name;           /* text string to match #define */
 } nifti_type_ele;
 
 #undef  LNI_FERR /* local nifti file error, to be compact and repetative */
@@ -533,11 +499,5 @@ typedef struct {
 
 #endif  /* _NIFTI1_IO_C_ section */
 /*------------------------------------------------------------------------*/
-
-/*=================*/
-#ifdef  __cplusplus
-}
-#endif
-/*=================*/
 
 #endif /* _NIFTI_IO_HEADER_ */
