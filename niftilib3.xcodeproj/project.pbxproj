@@ -6,8 +6,21 @@
 	objectVersion = 46;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		F6E9DAAF16022D06005D73E3 /* nifti1_io.c in Sources */ = {isa = PBXBuildFile; fileRef = F6E9DAA916022D06005D73E3 /* nifti1_io.c */; };
+		F6E9DAB016022D06005D73E3 /* nifti1_io.h in Headers */ = {isa = PBXBuildFile; fileRef = F6E9DAAA16022D06005D73E3 /* nifti1_io.h */; };
+		F6E9DAB216022D06005D73E3 /* nifti1.h in Headers */ = {isa = PBXBuildFile; fileRef = F6E9DAAC16022D06005D73E3 /* nifti1.h */; };
+		F6E9DAB316022D06005D73E3 /* znzlib.c in Sources */ = {isa = PBXBuildFile; fileRef = F6E9DAAD16022D06005D73E3 /* znzlib.c */; };
+		F6E9DAB416022D06005D73E3 /* znzlib.h in Headers */ = {isa = PBXBuildFile; fileRef = F6E9DAAE16022D06005D73E3 /* znzlib.h */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		F6E9DAA216022CD1005D73E3 /* libniftilib3.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libniftilib3.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6E9DAA916022D06005D73E3 /* nifti1_io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nifti1_io.c; sourceTree = "<group>"; };
+		F6E9DAAA16022D06005D73E3 /* nifti1_io.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nifti1_io.h; sourceTree = "<group>"; };
+		F6E9DAAC16022D06005D73E3 /* nifti1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nifti1.h; sourceTree = "<group>"; };
+		F6E9DAAD16022D06005D73E3 /* znzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = znzlib.c; sourceTree = "<group>"; };
+		F6E9DAAE16022D06005D73E3 /* znzlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = znzlib.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -24,6 +37,7 @@
 		F6E9DA9716022CD1005D73E3 = {
 			isa = PBXGroup;
 			children = (
+				F6E9DAB516022D0B005D73E3 /* Source */,
 				F6E9DAA316022CD1005D73E3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -36,6 +50,18 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		F6E9DAB516022D0B005D73E3 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				F6E9DAA916022D06005D73E3 /* nifti1_io.c */,
+				F6E9DAAA16022D06005D73E3 /* nifti1_io.h */,
+				F6E9DAAC16022D06005D73E3 /* nifti1.h */,
+				F6E9DAAD16022D06005D73E3 /* znzlib.c */,
+				F6E9DAAE16022D06005D73E3 /* znzlib.h */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -43,6 +69,9 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6E9DAB016022D06005D73E3 /* nifti1_io.h in Headers */,
+				F6E9DAB216022D06005D73E3 /* nifti1.h in Headers */,
+				F6E9DAB416022D06005D73E3 /* znzlib.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -97,6 +126,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6E9DAAF16022D06005D73E3 /* nifti1_io.c in Sources */,
+				F6E9DAB316022D06005D73E3 /* znzlib.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
