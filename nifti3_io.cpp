@@ -440,7 +440,6 @@ static char *escapize_string   (const char *str);
 
 /* internal I/O routines */
 static znzFile nifti_image_load_prep( nifti_image *nim );
-static int     has_ascii_header(znzFile fp);
 /*---------------------------------------------------------------------------*/
 
 
@@ -3430,12 +3429,12 @@ nifti_1_header * nifti_read_header(const char * hname, int * swapped, int check)
 	
 	free(hfile);  /* done with filename */
 	
-	if( has_ascii_header(fp) == 1 ){
+	/*if( has_ascii_header(fp) == 1 ){
 		znzclose( fp );
 		if( g_opts.debug > 0 )
 			LNI_FERR(fname,"ASCII header type not supported",hname);
 		return NULL;
-	}
+	}*/
 	
 	/* read the binary header */
 	bytes = (int)znzread( &nhdr, 1, sizeof(nhdr), fp );
@@ -3654,15 +3653,15 @@ nifti_image *nifti_image_read( const char *hname , int read_data )
 		return NULL;
 	}
 	
-	rv = has_ascii_header( fp );
+	/*rv = has_ascii_header( fp );
 	if( rv < 0 ){
 		if( g_opts.debug > 0 ) LNI_FERR(fname,"short header read",hfile);
 		znzclose( fp );
 		free(hfile);
 		return NULL;
-	}
-	else if ( rv == 1 )  /* process special file type */
-		return nifti_read_ascii_image( fp, hfile, filesize, read_data );
+	}*/
+	//else if ( rv == 1 )  /* process special file type */
+	//	return nifti_read_ascii_image( fp, hfile, filesize, read_data );
 	
 	/* else, just process normally */
 	
@@ -3720,103 +3719,6 @@ nifti_image *nifti_image_read( const char *hname , int read_data )
 	
 	return nim ;
 }
-
-
-/*----------------------------------------------------------------------
- * has_ascii_header  - see if the NIFTI header is an ASCII format
- *
- * If the file starts with the ASCII string "<nifti_image", then
- * process the dataset as a type-3 .nia file.
- *
- * return:  -1 on error, 1 if true, or 0 if false
- *
- * NOTE: this is NOT part of the NIFTI-1 standard
- *----------------------------------------------------------------------*/
-static int has_ascii_header( znzFile fp )
-{
-	char  buf[16];
-	int   nread;
-	
-	if( znz_isnull(fp) ) return 0;
-	
-	nread = (int)znzread( buf, 1, 12, fp );
-	buf[12] = '\0';
-	
-	if( nread < 12 ) return -1;
-	
-	znzrewind(fp);  /* move back to the beginning, and check */
-	
-	if( strcmp(buf, "<nifti_image") == 0 ) return 1;
-	
-	return 0;
-}
-
-
-/*----------------------------------------------------------------------*/
-/*! nifti_read_ascii_image  - process as a type-3 .nia image file
- 
- return NULL on failure
- 
- NOTE: this is NOT part of the NIFTI-1 standard
- *//*--------------------------------------------------------------------*/
-nifti_image * nifti_read_ascii_image(znzFile fp, char *fname, int flen,
-                                     int read_data)
-{
-	nifti_image * nim;
-	int           slen, txt_size, remain, rv = 0;
-	char        * sbuf, lfunc[25] = { "nifti_read_ascii_image" };
-	
-	if( nifti_is_gzfile(fname) ){
-		LNI_FERR(lfunc,"compression not supported for file type NIFTI_FTYPE_ASCII",
-				 fname);
-		free(fname);  znzclose(fp);  return NULL;
-	}
-	slen = flen;  /* slen will be our buffer length */
-	
-	if( g_opts.debug > 1 )
-		fprintf(stderr,"-d %s: have ASCII NIFTI file of size %d\n",fname,slen);
-	
-	if( slen > 65530 ) slen = 65530 ;
-	sbuf = (char *)calloc(sizeof(char),slen+1) ;
-	if( !sbuf ){
-		fprintf(stderr,"** %s: failed to alloc %d bytes for sbuf",lfunc,65530);
-		free(fname);  znzclose(fp);  return NULL;
-	}
-	znzread( sbuf , 1 , slen , fp ) ;
-	nim = nifti_image_from_ascii( sbuf, &txt_size ) ; free( sbuf ) ;
-	if( nim == NULL ){
-		LNI_FERR(lfunc,"failed nifti_image_from_ascii()",fname);
-		free(fname);  znzclose(fp);  return NULL;
-	}
-	nim->nifti_type = NIFTI_FTYPE_ASCII ;
-	
-	/* compute remaining space for extensions */
-	remain = flen - txt_size - (int)nifti_get_volsize(nim);
-	if( remain > 4 ){
-		/* read extensions (reposition file pointer, first) */
-		znzseek(fp, txt_size, SEEK_SET);
-		(void) nifti_read_extensions(nim, fp, remain);
-	}
-	
-	free(fname);
-	znzclose( fp ) ;
-	
-	nim->iname_offset = -1 ;  /* check from the end of the file */
-	
-	if( read_data ) rv = nifti_image_load( nim ) ;
-	else            nim->data = NULL ;
-	
-	/* check for nifti_image_load() failure, maybe bail out */
-	if( read_data && rv != 0 ){
-		if( g_opts.debug > 1 )
-			fprintf(stderr,"-d failed image_load, free nifti image struct\n");
-		free(nim);
-		return NULL;
-	}
-	
-	return nim ;
-}
-
 
 /*----------------------------------------------------------------------
  * Read the extensions into the nifti_image struct   08 Dec 2004 [rickr]
@@ -5184,8 +5086,8 @@ znzFile nifti_image_write_hdr_img2(nifti_image *nim, int write_opts,
 					nim->nifti_type, nim->iname_offset);
 	}
 	
-	if( nim->nifti_type == NIFTI_FTYPE_ASCII )   /* non-standard case */
-		return nifti_write_ascii_image(nim,NBL,opts,write_data,leave_open);
+	//if( nim->nifti_type == NIFTI_FTYPE_ASCII )   /* non-standard case */
+	//	return nifti_write_ascii_image(nim,NBL,opts,write_data,leave_open);
 	
 	nhdr = nifti_convert_nim2nhdr(nim);    /* create the nifti1_header struct */
 	
@@ -6963,4 +6865,346 @@ int nifti_disp_type_list( int which )
     return 0;
 }
 
+/*class NiftiImage
+{
+	private:
+		int _dim[8];
+		float _voxdim[8];
+		Matrix4d _qform, _sform;
+		
+		std::string _hdr_path, _img_path;
+		int _offset, _swapsize, _byteorder;
+		char _mode;
+		
+	public:
+		NiftiImage();
+		NiftiImage(const NiftiImage &clone);
+		NiftiImage(const int nx, const int ny, const int nz, const int nt,
+		           const float dx, const float dy, const float dz, const float dt);
+		NiftiImage(const std::string filename);
+		
+		void open(std::string filename, char mode);
+		void close();
+		void writeHeader();
+}*/
 
+NiftiImage::NiftiImage() :
+	_dim(),
+	_voxdim(),
+	_mode(NIFTI_CLOSED),
+	_gz(false)
+{
+	_qform.setIdentity(); _sform.setIdentity();
+}
+
+bool isGZippedFile(const std::string &fname)
+{
+	if (fname.find_last_of(".") != std::string::npos)
+	{
+		std::string ext = fname.substr(fname.find_last_of(".") + 1);
+		std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+		if (ext == "gz")
+			return true;
+	}
+	return false;
+}
+
+void NiftiImage::setFilenames(const std::string &fname)
+{	
+	std::string ext = fname.substr(fname.find_last_of(".") + 1);
+	std::string basename = fname.substr(0, fname.find_last_of("."));
+	if (ext == "gz")
+	{
+		_gz = true;
+		ext = basename.substr(basename.find_last_of(".") + 1);
+		basename = basename.substr(0, basename.find_last_of("."));
+	}
+	if (ext == "hdr" || ext == "img")
+	{
+		_imgname = basename + ".img";
+		_hdrname = basename + ".hdr";
+	}
+	else
+	{
+		_imgname = _hdrname = basename + ".nii";
+	}
+	if (_gz)
+	{
+		_imgname += ".gz";
+		_hdrname += ".gz";
+	}
+}
+
+/*----------------------------------------------------------------------
+ * check whether byte swapping is needed
+ *
+ * dim[0] should be in [0,7], and sizeof_hdr should be accurate
+ *
+ * \returns  > 0 : needs swap
+ *             0 : does not need swap
+ *           < 0 : error condition
+ *----------------------------------------------------------------------*/
+int NiftiImage::needs_swap( short dim0, int hdrsize )
+{
+	short d0    = dim0;     /* so we won't have to swap them on the stack */
+	int   hsize = hdrsize;
+	
+	if( d0 != 0 ){     /* then use it for the check */
+		if( d0 > 0 && d0 <= 7 ) return 0;
+		
+		nifti_swap_2bytes(1, &d0);        /* swap? */
+		if( d0 > 0 && d0 <= 7 ) return 1;
+		
+		if( g_opts.debug > 1 ){
+			fprintf(stderr,"** NIFTI: bad swapped d0 = %d, unswapped = ", d0);
+			nifti_swap_2bytes(1, &d0);        /* swap? */
+			fprintf(stderr,"%d\n", d0);
+		}
+		
+		return -1;        /* bad, naughty d0 */
+	}
+	
+	/* dim[0] == 0 should not happen, but could, so try hdrsize */
+	if( hsize == sizeof(nifti_1_header) ) return 0;
+	
+	nifti_swap_4bytes(1, &hsize);     /* swap? */
+	if( hsize == sizeof(nifti_1_header) ) return 1;
+	
+	if( g_opts.debug > 1 ){
+		fprintf(stderr,"** NIFTI: bad swapped hsize = %d, unswapped = ", hsize);
+		nifti_swap_4bytes(1, &hsize);        /* swap? */
+		fprintf(stderr,"%d\n", hsize);
+	}
+	
+	return -2;     /* bad, naughty hsize */
+}
+
+void NiftiImage::readHeader(std::string filename)
+{
+	struct nifti_1_header  nhdr;
+	znzFile                fp;
+	size_t                 bytes_read, filesize, remaining;
+	
+	/** Determine image and header filename*/
+	setFilenames(filename);
+	
+	fp = znzopen(_hdrname.c_str(), "rb", _gz);
+	if (znz_isnull(fp))
+	{
+		std::cerr << "Failed to open header from file: " << _hdrname << std::endl;
+		abort();
+	}
+	//if( nifti_is_gzfile(hfile) ) filesize = -1;  /* unknown */
+	//else                         filesize = nifti_get_filesize(hfile);
+		
+	bytes_read = znzread(&nhdr, 1, sizeof(nhdr), fp);  /* read the thing */
+	
+	/* keep file open so we can check for exts. after nifti_convert_nhdr2nim() */
+	if (bytes_read < sizeof(nhdr))
+	{
+		std::cerr << "Only read " << bytes_read << " bytes from " << _hdrname <<
+		             ", should have been " << sizeof(nhdr) << "." << std::endl;
+		znzclose(fp);
+		abort();
+	}
+	
+	/**- check if we must swap bytes */
+	int doswap = needs_swap(nhdr.dim[0], nhdr.sizeof_hdr); /* swap data flag */
+	if(doswap < 0)
+	{
+		std::cerr << "Could not determine byte order of header " <<
+					 _hdrname << "." << std::endl;
+		abort();
+	}
+	
+	analyze_75_orient_code analyze75_orient;
+	int is_nifti = NIFTI_VERSION(nhdr);
+	if(!is_nifti)
+	{
+		/**- in analyze75, the orient code is at the same address as
+		 *   qform_code, but it's just one byte
+		 *   the qform_code will be zero, at which point you can check
+		 *   analyze75_orient if you care to.
+		 */
+		unsigned char c = *((char *)(&nhdr.qform_code));
+		analyze75_orient = (analyze_75_orient_code)c;
+	}
+	if (doswap)
+		swap_nifti_header( &nhdr , is_nifti );
+	
+	if(nhdr.datatype == DT_BINARY || nhdr.datatype == DT_UNKNOWN  )
+		std::cerr << "Bad datatype in header " << _hdrname << std::endl;
+	if(nhdr.dim[1] <= 0)
+		std::cerr << "Bad first dimension in header " << _hdrname << std::endl;
+	
+	/* fix bad dim[] values in the defined dimension range */
+	for(int i=2; i <= nhdr.dim[0]; i++)
+		if(nhdr.dim[i] <= 0) nhdr.dim[i] = 1;
+	
+	/* fix any remaining bad dim[] values, so garbage does not propagate */
+	/* (only values 0 or 1 seem rational, otherwise set to arbirary 1)   */
+	for(int i=nhdr.dim[0]+1; i < 8; i++)
+		if(nhdr.dim[i] != 1 && nhdr.dim[i] != 0) nhdr.dim[i] = 1 ;
+	
+	/**- set bad grid spacings to 1.0 */
+	for(int i=1; i <= nhdr.dim[0]; i++)
+	{
+		if(nhdr.pixdim[i] == 0.0 || !IS_GOOD_FLOAT(nhdr.pixdim[i]))
+			nhdr.pixdim[i] = 1.0;
+	}
+	
+	int is_onefile = is_nifti && NIFTI_ONEFILE(nhdr);
+	if(is_nifti)
+		_nifti_type = (is_onefile) ? NIFTI_FTYPE_NIFTI1_1 : NIFTI_FTYPE_NIFTI1_2;
+	else
+		_nifti_type = NIFTI_FTYPE_ANALYZE ;
+	
+	_byteorder = nifti_short_order();
+	if (doswap)
+		_byteorder = REVERSE_ORDER(_byteorder);
+	
+	/**- Set dimensions arrays */
+	for (int i = 0; i < 8; i++)
+	{
+		_dim[i] = nhdr.dim[i];
+		_voxdim[i] = nhdr.pixdim[i];
+	}
+	
+	_nvox = 1;
+	for(int i=1; i <= _dim[0]; i++ )
+		_nvox *= _dim[i];
+	
+	/**- set the type of data in voxels and how many bytes per voxel */
+	_datatype = nhdr.datatype;
+	
+	nifti_datatype_sizes(_datatype, &_nbyper, &_swapsize);
+	if(_nbyper == 0 )
+		std::cerr << "Bad datatype in header " << _hdrname << std::endl;
+	
+	/**- compute qto_xyz transformation from pixel indexes (i,j,k) to (x,y,z) */
+	Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
+	if( !is_nifti || nhdr.qform_code <= 0 ){
+		/**- if not nifti or qform_code <= 0, use grid spacing for qto_xyz */
+		_qform = S.matrix();
+		qform_code = NIFTI_XFORM_UNKNOWN ;
+	} else {
+		/**- else NIFTI: use the quaternion-specified transformation */
+		double b = FIXED_FLOAT( nhdr.quatern_b ) ;
+		double c = FIXED_FLOAT( nhdr.quatern_c ) ;
+		double d = FIXED_FLOAT( nhdr.quatern_d ) ;
+		
+		double x = FIXED_FLOAT(nhdr.qoffset_x) ;
+		double y = FIXED_FLOAT(nhdr.qoffset_y) ;
+		double z = FIXED_FLOAT(nhdr.qoffset_z) ;
+		
+		double qfac = (nhdr.pixdim[0] < 0.0) ? -1.0 : 1.0 ;  /* left-handedness? */
+		
+		double a = sqrt(1 - (b*b + c*c + d*d));
+		Quaterniond Q(a, b, c, d);
+		Affine3d T; T = Translation3d(x, y, z);
+		Affine3d QO = T*S*Q;
+		_qform = QO.matrix();
+		if (qfac < 0.)
+			_qform.block(0, 2, 3, 1) *= -1.;
+		qform_code = nhdr.qform_code;
+	}
+	/**- load sto_xyz affine transformation, if present */
+	if( !is_nifti || nhdr.sform_code <= 0 )
+	{	/**- if not nifti or sform_code <= 0, then no sto transformation */
+		sform_code = NIFTI_XFORM_UNKNOWN ;
+	} else {
+		/**- else set the sto transformation from srow_*[] */
+		_sform.setIdentity();
+		for (int i = 0; i < 4; i++)
+		{
+			_sform(0, i) = nhdr.srow_x[i];
+			_sform(1, i) = nhdr.srow_y[i];
+			_sform(2, i) = nhdr.srow_z[i];
+		}
+		sform_code = nhdr.sform_code ;
+	}
+	
+	/**- set miscellaneous NIFTI stuff */
+	if( is_nifti ){
+		scaling_slope   = FIXED_FLOAT(nhdr.scl_slope);
+		scaling_inter   = FIXED_FLOAT(nhdr.scl_inter);
+		intent_code = nhdr.intent_code;
+		intent_p1 = FIXED_FLOAT(nhdr.intent_p1);
+		intent_p2 = FIXED_FLOAT(nhdr.intent_p2);
+		intent_p3 = FIXED_FLOAT(nhdr.intent_p3);
+		toffset   = FIXED_FLOAT(nhdr.toffset);
+		
+		intent_name = std::string(nhdr.intent_name);
+		xyz_units = XYZT_TO_SPACE(nhdr.xyzt_units);
+		time_units = XYZT_TO_TIME(nhdr.xyzt_units);
+		freq_dim  = DIM_INFO_TO_FREQ_DIM (nhdr.dim_info);
+		phase_dim = DIM_INFO_TO_PHASE_DIM(nhdr.dim_info);
+		slice_dim = DIM_INFO_TO_SLICE_DIM(nhdr.dim_info);
+		slice_code     = nhdr.slice_code;
+		slice_start    = nhdr.slice_start;
+		slice_end      = nhdr.slice_end;
+		slice_duration = FIXED_FLOAT(nhdr.slice_duration);
+	}
+	
+	/**- set Miscellaneous ANALYZE stuff */
+	
+	calibration_min = FIXED_FLOAT(nhdr.cal_min);
+	calibration_max = FIXED_FLOAT(nhdr.cal_max);
+	
+	description = std::string(nhdr.descrip);
+	aux_file    = std::string(nhdr.aux_file);
+	
+	/**- set ioff from vox_offset (but at least sizeof(header)) */
+	is_onefile = is_nifti && NIFTI_ONEFILE(nhdr);
+	int ioff;
+	if (is_onefile)
+	{
+		ioff = (int)nhdr.vox_offset ;
+		if( ioff < (int) sizeof(nhdr) ) ioff = (int) sizeof(nhdr) ;
+	} else {
+		ioff = (int)nhdr.vox_offset ;
+	}
+	_iname_offset = ioff ;
+	
+	/* clear extension fields */
+	_num_ext = 0;
+	_ext_list = NULL;
+	/**- check for extensions (any errors here means no extensions) */
+	//if( NIFTI_ONEFILE(nhdr) ) remaining = nim->iname_offset - sizeof(nhdr);
+	//else                      remaining = filesize - sizeof(nhdr);
+	
+	//(void)nifti_read_extensions(nim, fp, remaining);
+	
+	znzclose(fp);                                      /* close the file */
+}
+
+void NiftiImage::open(std::string filename, char mode)
+{
+	if (mode == NIFTI_READ) {
+		readHeader(filename);
+	} else if (mode == NIFTI_WRITE) {
+	} else {
+		std::cerr << "Invalid NiftImage mode " << mode << "." << std::endl;
+		abort();
+	}
+}
+
+void NiftiImage::close()
+{
+
+}
+
+NiftiImage::~NiftiImage()
+{
+	close();
+}
+
+int NiftiImage::nx() const { return _dim[1]; }
+int NiftiImage::ny() const { return _dim[2]; }
+int NiftiImage::nz() const { return _dim[3]; }
+float NiftiImage::dx() const { return _voxdim[1]; }
+float NiftiImage::dy() const { return _voxdim[2]; }
+float NiftiImage::dz() const { return _voxdim[3]; }
+
+const Matrix4d &NiftiImage::qform() const { return _qform; }
+const Matrix4d &NiftiImage::sform() const { return _sform; }
