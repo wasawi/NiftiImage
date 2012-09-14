@@ -132,17 +132,17 @@ size_t znzread(void* buf, size_t size, size_t nmemb, znzFile file)
 {
 	if (file==NULL) { return 0; }
 #ifdef HAVE_ZLIB
-	size_t     remain = size*nmemb;
-	char     * cbuf = (char *)buf;
-	unsigned   n2read;
-	int        nread;
+	unsigned long remain = size*nmemb;
+	char  *cbuf = (char *)buf;
+	unsigned long n2read;
+	int nread;
 	
 	if (file->zfptr!=NULL) {
 		/* gzread/write take unsigned int length, so maybe read in int pieces
 		 (noted by M Hanke, example given by M Adler)   6 July 2010 [rickr] */
 		while( remain > 0 ) {
 			n2read = (remain < ZNZ_MAX_BLOCK_SIZE) ? remain : ZNZ_MAX_BLOCK_SIZE;
-			nread = gzread(file->zfptr, (void *)cbuf, n2read);
+			nread = gzread(file->zfptr, (void *)cbuf, (unsigned int)n2read);
 			if( nread < 0 ) return nread; /* returns -1 on error */
 			
 			remain -= nread;
@@ -166,15 +166,15 @@ size_t znzwrite(const void* buf, size_t size, size_t nmemb, znzFile file)
 {
 	if (file==NULL) { return 0; }
 #ifdef HAVE_ZLIB
-	size_t     remain = size*nmemb;
+	unsigned long remain = size*nmemb;
 	char     * cbuf = (char *)buf;
-	unsigned   n2write;
+	unsigned long n2write;
 	int        nwritten;
 	
 	if (file->zfptr!=NULL) {
 		while( remain > 0 ) {
 			n2write = (remain < ZNZ_MAX_BLOCK_SIZE) ? remain : ZNZ_MAX_BLOCK_SIZE;
-			nwritten = gzwrite(file->zfptr, (void *)cbuf, n2write);
+			nwritten = gzwrite(file->zfptr, (void *)cbuf, (unsigned int)n2write);
 			
 			/* gzread returns 0 on error, but in case that ever changes... */
 			if( nwritten < 0 ) return nwritten;
@@ -299,11 +299,11 @@ int znzprintf(znzFile stream, const char *format, ...)
 #ifdef HAVE_ZLIB
 	char *tmpstr;
 	if (stream->zfptr!=NULL) {
-		int size;  /* local to HAVE_ZLIB block */
+		unsigned long size;  /* local to HAVE_ZLIB block */
 		size = strlen(format) + 1000000;  /* overkill I hope */
 		tmpstr = (char *)calloc(1, size);
 		if( tmpstr == NULL ){
-			fprintf(stderr,"** ERROR: znzprintf failed to alloc %d bytes\n", size);
+			fprintf(stderr,"** ERROR: znzprintf failed to alloc %ld bytes\n", size);
 			return retval;
 		}
 		vsprintf(tmpstr,format,va);
