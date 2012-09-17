@@ -15,6 +15,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <complex>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -161,110 +162,6 @@ typedef struct {                /*!< Image storage struct **/
 	
 } nifti_image ;
 
-/*! NIfTI header class */
-
-enum NIFTIIMAGE_MODES
-{
-	NIFTI_CLOSED = 0,
-	NIFTI_READ = 'r',
-	NIFTI_WRITE = 'w'
-};
-
-class NiftiImage
-{
-	private:
-		int _dim[8], _nvox;               /*!< number of voxels = nx*ny*nz*...*nw   */
-		float _voxdim[8];
-		Matrix4d _qform, _sform;
-		
-		std::string _imgname, _hdrname;     /* Paths to header and image files*/
-		int _offset, _nbyper, _swapsize, _byteorder; /* Offset and byte swap info */
-		int _datatype;                      /* Datatype on disk */
-		int _nifti_type;
-		int _iname_offset, _num_ext;
-		nifti1_extension *_ext_list;
-		char _mode;
-		bool _gz;
-		
-		void setFilenames(const std::string &filename);
-		static int needs_swap(short dim0, int hdrsize);
-		void readHeader(std::string filename);
-	public:
-		~NiftiImage();
-		NiftiImage();
-		NiftiImage(const NiftiImage &clone);
-		NiftiImage(const int nx, const int ny, const int nz, const int nt,
-		           const float dx, const float dy, const float dz, const float dt);
-		NiftiImage(const std::string filename);
-		
-		void open(std::string filename, char mode);
-		void close();
-		void writeHeader();
-		template<typename T> T *readVolume(const int vol);
-		template<typename T> T *readAllVolumes();
-		template<typename T> void writeVolume(const int vol, T *data);
-		template<typename T> void writeAllVolumes(T *data);
-		
-		int ndim();
-		int nx() const;
-		int ny() const;
-		int nz() const;
-		int nt() const;
-		int nvox() const;
-		void setDims(int nx, int ny, int nz, int nt);
-		
-		int datatype() const;
-		void setDatatype(const int dt);
-		
-		float dx() const;
-		float dy() const;
-		float dz() const;
-		float dt() const;
-		void setVoxDims(double dx, double dy, double dz, double dt);
-		
-		float scaling_slope;
-		float scaling_inter;
-		float calibration_min;
-		float calibration_max;
-		
-		int qform_code;
-		int sform_code;
-		const Matrix4d &qform() const;
-		const Matrix4d &sform() const;
-		void set_qform(const Matrix4d& new_qform);
-		void set_qform(const Affine3d &R, const Affine3d &T);
-		void set_qform(const double b, const double c, const double d,
-					   const double x, const double y, const double z);
-		void set_sform(const Matrix4d& new_sform);
-		
-		int freq_dim ;               /*!< indexes (1,2,3, or 0) for MRI    */
-		int phase_dim;               /*!< directions in dim[]/pixdim[]     */
-		int slice_dim;               /*!< directions in dim[]/pixdim[]     */
-		
-		int   slice_code;             /*!< code for slice timing pattern    */
-		int   slice_start;            /*!< index for start of slices        */
-		int   slice_end;              /*!< index for end of slices          */
-		float slice_duration;         /*!< time between individual slices   */
-		float toffset;                /*!< time coordinate offset */
-	
-		int xyz_units;                /*!< dx,dy,dz units: NIFTI_UNITS_* code  */
-		int time_units;               /*!< dt       units: NIFTI_UNITS_* code  */
-	
-		int nifti_type() const;       /*!< 0==ANALYZE, 1==NIFTI-1 (1 file),
-								           2==NIFTI-1 (2 files) */
-		int   intent_code ;           /*!< statistic type (or something)       */
-		float intent_p1 ;             /*!< intent parameters                   */
-		float intent_p2 ;             /*!< intent parameters                   */
-		float intent_p3 ;             /*!< intent parameters                   */
-		std::string intent_name;      /*!< optional description of intent data */
-	
-		std::string description;      /*!< optional text to describe dataset   */
-		std::string aux_file;         /*!< auxiliary filename                  */
-		
-		int                num_ext ;  /*!< number of extensions in ext_list       */
-		nifti1_extension * ext_list ; /*!< array of extension structs (with data) */
-		analyze_75_orient_code analyze75_orient; /*!< for old analyze files, orient */
-};
 /* struct for return from nifti_image_read_bricks() */
 typedef struct {
 	int       nbricks;    /* the number of allocated pointers in 'bricks' */
@@ -596,8 +493,170 @@ fprintf(stderr,"** ERROR (%s): %s '%s'\n",func,msg,file)
 #define REVERSE_ORDER(x) (3-(x))    /* convert MSB_FIRST <--> LSB_FIRST */
 
 #define LNI_MAX_NIA_EXT_LEN 100000  /* consider a longer extension invalid */
-
 #endif  /* _NIFTI1_IO_C_ section */
 /*------------------------------------------------------------------------*/
 
+/*! NIfTI header class */
+
+enum NIFTIIMAGE_MODES
+{
+	NIFTI_CLOSED = 0,
+	NIFTI_READ = 'r',
+	NIFTI_WRITE = 'w'
+};
+
+class NiftiImage
+{
+	private:
+		int _dim[8], _nvox;               /*!< number of voxels = nx*ny*nz*...*nw   */
+		float _voxdim[8];
+		Matrix4d _qform, _sform, _inverse;
+		
+		std::string _imgname, _hdrname;     /* Paths to header and image files*/
+		int _voxoffset, _nbyper, _swapsize, _byteorder; /* Offset and byte swap info */
+		int _datatype;                      /* Datatype on disk */
+		int _nifti_type;
+		int _iname_offset, _num_ext;
+		nifti1_extension *_ext_list;
+		char _mode;
+		bool _gz;
+		znzFile _imgfile;
+		
+		void setFilenames(const std::string &filename);
+		static int needs_swap(short dim0, int hdrsize);
+		void readHeader(std::string filename);
+		
+		void *readBuffer(size_t start, size_t length);
+		template<typename T> T *convertBuffer(const void *raw, const size_t bufferSize)
+		{
+			T *converted = (T *)malloc(bufferSize * sizeof(T));
+			for (int i = 0; i < bufferSize; i++) {
+				switch (_datatype) {
+					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
+					// should be interchangeable even at pointer level, so the following
+					// should work.
+					case DT_INT8:      converted[i] = (T)((char *)raw)[i]; break;
+					case DT_UINT8:     converted[i] = (T)((unsigned char *)raw)[i]; break;
+					case DT_INT16:     converted[i] = (T)((short *)raw)[i]; break;
+					case DT_UINT16:    converted[i] = (T)((unsigned short *)raw)[i]; break;
+						
+					case DT_RGB24:     break ;
+					case DT_RGBA32:    break ;
+						
+					case DT_INT32:     converted[i] = (T)((int *)raw)[i]; break;
+					case DT_UINT32:    converted[i] = (T)((unsigned int *)raw)[i]; break;
+					
+					case DT_FLOAT32:   converted[i] = (T)((float *)raw)[i]; break;
+					//case DT_COMPLEX64: converted[i] = (T)((std::complex<float> *)raw)[i]; break;
+						
+					case DT_FLOAT64:   converted[i] = (T)((double *)raw)[i]; break;
+					case DT_INT64:     converted[i] = (T)((long *)raw)[i]; break;
+					case DT_UINT64:    converted[i] = (T)((unsigned long *)raw)[i]; break;
+						
+					case DT_FLOAT128:  converted[i] = (T)((long double *)raw)[i]; break;
+						
+					//case DT_COMPLEX128: converted[i] = (T)((std::complex<double> *)raw)[i]; break;
+						
+					//case DT_COMPLEX256: converted[i] = (T)((std::complex<long double> *)raw)[i]; break;
+				}
+			}
+			return converted;
+		}		
+	
+	public:
+		~NiftiImage();
+		NiftiImage();
+		NiftiImage(const NiftiImage &clone);
+		NiftiImage(const int nx, const int ny, const int nz, const int nt,
+		           const float dx, const float dy, const float dz, const float dt);
+		NiftiImage(const std::string filename);
+		
+		void open(std::string filename, char mode);
+		void close();
+		void writeHeader();
+		void *readRawVolume(const int vol);
+		void *readRawAllVolumes();
+		template<typename T> T *readVolume(const int vol)
+		{
+			size_t bytesPerVolume = voxelsPerVolume() * _nbyper;
+			void *raw = readBuffer(vol * bytesPerVolume, bytesPerVolume);
+			T *converted = convertBuffer<T>(raw, voxelsPerVolume());
+			free(raw);
+			return converted;
+		}
+		
+		template<typename T> T *readAllVolumes()
+		{
+			void *raw =	readBuffer(0, nvox() * _nbyper);
+			T *converted = convertBuffer<T>(raw, nvox());
+			free(raw);
+			return converted;
+		}
+		
+		template<typename T> void writeVolume(const int vol, T *data);
+		template<typename T> void writeAllVolumes(T *data);
+		
+		int ndim();
+		int nx() const;
+		int ny() const;
+		int nz() const;
+		int nt() const;
+		int voxelsPerVolume() const;
+		int nvox() const;
+		void setDims(int nx, int ny, int nz, int nt);
+		
+		int datatype() const;
+		void setDatatype(const int dt);
+		
+		float dx() const;
+		float dy() const;
+		float dz() const;
+		float dt() const;
+		void setVoxDims(double dx, double dy, double dz, double dt);
+		
+		float scaling_slope;
+		float scaling_inter;
+		float calibration_min;
+		float calibration_max;
+		
+		int qform_code;
+		int sform_code;
+		const Matrix4d &qform() const;
+		const Matrix4d &sform() const;
+		void set_qform(const Matrix4d& new_qform);
+		void set_qform(const Affine3d &R, const Affine3d &T);
+		void set_qform(const double b, const double c, const double d,
+					   const double x, const double y, const double z);
+		void set_sform(const Matrix4d& new_sform);
+		const Matrix4d &ijk_to_xyz() const;
+		const Matrix4d &xyz_to_ijk() const;
+		
+		int freq_dim ;               /*!< indexes (1,2,3, or 0) for MRI    */
+		int phase_dim;               /*!< directions in dim[]/pixdim[]     */
+		int slice_dim;               /*!< directions in dim[]/pixdim[]     */
+		
+		int   slice_code;             /*!< code for slice timing pattern    */
+		int   slice_start;            /*!< index for start of slices        */
+		int   slice_end;              /*!< index for end of slices          */
+		float slice_duration;         /*!< time between individual slices   */
+		float toffset;                /*!< time coordinate offset */
+	
+		int xyz_units;                /*!< dx,dy,dz units: NIFTI_UNITS_* code  */
+		int time_units;               /*!< dt       units: NIFTI_UNITS_* code  */
+	
+		int nifti_type() const;       /*!< 0==ANALYZE, 1==NIFTI-1 (1 file),
+								           2==NIFTI-1 (2 files) */
+		int   intent_code ;           /*!< statistic type (or something)       */
+		float intent_p1 ;             /*!< intent parameters                   */
+		float intent_p2 ;             /*!< intent parameters                   */
+		float intent_p3 ;             /*!< intent parameters                   */
+		std::string intent_name;      /*!< optional description of intent data */
+	
+		std::string description;      /*!< optional text to describe dataset   */
+		std::string aux_file;         /*!< auxiliary filename                  */
+		
+		int                num_ext ;  /*!< number of extensions in ext_list       */
+		nifti1_extension * ext_list ; /*!< array of extension structs (with data) */
+		analyze_75_orient_code analyze75_orient; /*!< for old analyze files, orient */
+};
 #endif /* _NIFTI_IO_HEADER_ */

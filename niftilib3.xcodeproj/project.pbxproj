@@ -190,7 +190,9 @@
 		F6E9DAA716022CD1005D73E3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				OTHER_CFLAGS = "-DHAVE_ZLIB";
 				PRIVATE_HEADERS_FOLDER_PATH = include/;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -201,7 +203,9 @@
 		F6E9DAA816022CD1005D73E3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				OTHER_CFLAGS = "-DHAVE_ZLIB";
 				PRIVATE_HEADERS_FOLDER_PATH = include/;
 				PRODUCT_NAME = "$(TARGET_NAME)";
