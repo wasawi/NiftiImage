@@ -510,9 +510,10 @@ class NiftiImage
 	private:
 		int _dim[8], _nvox;               /*!< number of voxels = nx*ny*nz*...*nw   */
 		float _voxdim[8];
-		Matrix4d _qform, _sform, _inverse;
+		Affine3d _qform, _sform, _inverse;
 		
 		std::string _imgname, _hdrname;     /* Paths to header and image files*/
+		long _currpos, _filesize;           // Location within file, total written size in bytes
 		int _voxoffset, _nbyper, _swapsize, _byteorder; /* Offset and byte swap info */
 		int _datatype;                      /* Datatype on disk */
 		int _nifti_type;
@@ -524,9 +525,11 @@ class NiftiImage
 		
 		void setFilenames(const std::string &filename);
 		static int needs_swap(short dim0, int hdrsize);
-		void readHeader(std::string filename);
-		
+		void seek(long offset, int whence);
+		void readHeader(std::string path);
+		void writeHeader(std::string path);
 		void *readBuffer(size_t start, size_t length);
+		void writeBuffer(void *buffer, size_t start, size_t length);
 		template<typename T> T *convertBuffer(const void *raw, const size_t bufferSize)
 		{
 			T *converted = (T *)malloc(bufferSize * sizeof(T));
@@ -561,7 +564,42 @@ class NiftiImage
 				}
 			}
 			return converted;
-		}		
+		}
+		template<typename T> void *convertToBuffer(const T *raw, const size_t bufferSize)
+		{
+			void *converted = malloc(_nbyper * bufferSize);
+			for (int i = 0; i < bufferSize; i++) {
+				switch (_datatype) {
+					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
+					// should be interchangeable even at pointer level, so the following
+					// should work.
+					case DT_INT8:      ((char *)converted)[i] =          raw[i]; break;
+					case DT_UINT8:     ((unsigned char *)converted)[i] =  raw[i]; break;
+					case DT_INT16:     ((short *)converted)[i] =          raw[i]; break;
+					case DT_UINT16:    ((unsigned short *)converted)[i] = raw[i]; break;
+						
+					case DT_RGB24:     break ;
+					case DT_RGBA32:    break ;
+						
+					case DT_INT32:     ((int *)converted)[i] =          raw[i]; break;
+					case DT_UINT32:    ((unsigned int *)converted)[i] = raw[i]; break;
+					
+					case DT_FLOAT32:   ((float *)converted)[i] =        raw[i]; break;
+					//case DT_COMPLEX64: converted[i] = (T)((std::complex<float> *)raw)[i]; break;
+						
+					case DT_FLOAT64:   ((double *)converted)[i] =        raw[i]; break;
+					case DT_INT64:     ((long *)converted)[i] =          raw[i]; break;
+					case DT_UINT64:    ((unsigned long *)converted)[i] = raw[i]; break;
+						
+					case DT_FLOAT128:  ((long double *)converted)[i] =   raw[i]; break;
+						
+					//case DT_COMPLEX128: converted[i] = (T)((std::complex<double> *)raw)[i]; break;
+						
+					//case DT_COMPLEX256: converted[i] = (T)((std::complex<long double> *)raw)[i]; break;
+				}
+			}
+			return converted;
+		}
 	
 	public:
 		~NiftiImage();
@@ -573,7 +611,6 @@ class NiftiImage
 		
 		void open(std::string filename, char mode);
 		void close();
-		void writeHeader();
 		void *readRawVolume(const int vol);
 		void *readRawAllVolumes();
 		template<typename T> T *readVolume(const int vol)
@@ -593,10 +630,22 @@ class NiftiImage
 			return converted;
 		}
 		
-		template<typename T> void writeVolume(const int vol, T *data);
-		template<typename T> void writeAllVolumes(T *data);
+		template<typename T> void writeVolume(const int vol, T *data)
+		{
+			size_t bytesPerVolume = voxelsPerVolume() * _nbyper;
+			void *converted = convertToBuffer<T>(data, voxelsPerVolume());
+			writeBuffer(converted, vol * bytesPerVolume, bytesPerVolume);
+			free(converted);
+		}
 		
-		int ndim();
+		template<typename T> void writeAllVolumes(T *data)
+		{
+			void *converted = convertBuffer<T>(data, nvox());
+			writeBuffer(converted, 0, nvox() * _nbyper);
+			free(converted);
+		}
+		
+		int ndim() const;
 		int nx() const;
 		int ny() const;
 		int nz() const;

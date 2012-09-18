@@ -6944,6 +6944,56 @@ void NiftiImage::setFilenames(const std::string &fname)
  *             0 : does not need swap
  *           < 0 : error condition
  *----------------------------------------------------------------------*/
+void NiftiImage::seek(long offset, int whence)
+{
+	long newpos;
+	if (_mode == NIFTI_READ) {
+		if (whence == SEEK_SET)
+			newpos = offset;
+		else if (whence == SEEK_CUR)
+			newpos = _currpos + offset;
+		else
+		{
+			std::cerr << "NiftiImage: Reading with SEEK_END is not implemented." << std::endl;
+			abort();
+		}
+		
+		if (newpos < _voxoffset)
+		{
+			std::cerr << "NiftiImage: Attempted to seek into the header while reading from " << _imgname << "." << std::endl;
+			abort();
+		}
+	} else if (_mode == NIFTI_WRITE) {
+		if (whence == SEEK_SET)
+			newpos = offset;
+		else if (whence == SEEK_CUR)
+			newpos = _currpos + offset;
+		else
+			newpos = _filesize + offset;
+		
+		if (newpos < _voxoffset)
+		{
+			std::cerr << "NiftiImage: Attempted to seek into the header while writing to " << _imgname << "." << std::endl;
+			abort();
+		}
+		else if (_gz && newpos < _currpos)
+		{
+			std::cerr << "NiftiImage: Cannot seek backwards while writing a file with libz." << std::endl;
+			abort();
+		}
+	} else {
+		std::cerr << "NiftiImage: Cannot seek in a closed file." << std::endl;
+		abort();
+	}
+	znzseek(_imgfile, offset, whence);
+	_currpos = znztell(_imgfile);
+	if (_currpos != newpos)
+	{
+		std::cerr << "NiftiImage: Seek moved to an unexpected location ("
+				  << _currpos << ", not " << newpos << ")." << std::endl;
+	}
+}
+
 int NiftiImage::needs_swap( short dim0, int hdrsize )
 {
 	short d0    = dim0;     /* so we won't have to swap them on the stack */
@@ -6979,16 +7029,13 @@ int NiftiImage::needs_swap( short dim0, int hdrsize )
 	return -2;     /* bad, naughty hsize */
 }
 
-void NiftiImage::readHeader(std::string filename)
+void NiftiImage::readHeader(std::string path)
 {
 	struct nifti_1_header  nhdr;
 	znzFile                fp;
-	size_t                 bytes_read, filesize, remaining;
+	size_t                 bytes_read;
 	
-	/** Determine image and header filename*/
-	setFilenames(filename);
-	
-	fp = znzopen(_hdrname.c_str(), "rb", _gz);
+	fp = znzopen(path.c_str(), "rb", _gz);
 	if (znz_isnull(fp))
 	{
 		std::cerr << "Failed to open header from file: " << _hdrname << std::endl;
@@ -7102,10 +7149,10 @@ void NiftiImage::readHeader(std::string filename)
 		double a = sqrt(1 - (b*b + c*c + d*d));
 		Quaterniond Q(a, b, c, d);
 		Affine3d T; T = Translation3d(x, y, z);
-		Affine3d QO = T*S*Q;
-		_qform = QO.matrix();
+		_qform = T*S*Q;
+		_inverse = _qform.inverse();
 		if (qfac < 0.)
-			_qform.block(0, 2, 3, 1) *= -1.;
+			_qform.matrix().block(0, 2, 3, 1) *= -1.;
 		qform_code = nhdr.qform_code;
 	}
 	/**- load sto_xyz affine transformation, if present */
@@ -7121,6 +7168,7 @@ void NiftiImage::readHeader(std::string filename)
 			_sform(1, i) = nhdr.srow_y[i];
 			_sform(2, i) = nhdr.srow_z[i];
 		}
+		_inverse = _sform.inverse();
 		sform_code = nhdr.sform_code ;
 	}
 	
@@ -7177,7 +7225,100 @@ void NiftiImage::readHeader(std::string filename)
 	
 	znzclose(fp);
 	// Now we have a valid transform, store the inverse for future
-	_inverse = ijk_to_xyz().inverse();
+}
+
+void NiftiImage::writeHeader(std::string path)
+{
+	struct nifti_1_header nhdr;
+	memset(&nhdr,0,sizeof(nhdr)) ;  /* zero out header, to be safe */
+	/**- load the ANALYZE-7.5 generic parts of the header struct */
+	nhdr.sizeof_hdr = sizeof(nhdr) ;
+	nhdr.regular    = 'r' ;             /* for some stupid reason */
+	
+	for (int i = 0; i < 8; i++)
+	{	// Copy this way so types can be changed
+		nhdr.dim[i] = _dim[i];
+		nhdr.pixdim[i] = _voxdim[i];
+	}
+	
+	nhdr.datatype = _datatype;
+	nhdr.bitpix   = 8 * _nbyper;
+	
+	if(calibration_max > calibration_min) {
+		nhdr.cal_max = calibration_max;
+		nhdr.cal_min = calibration_min;
+	}
+	
+	if(scaling_slope != 0.0) {
+		nhdr.scl_slope = scaling_slope;
+		nhdr.scl_inter = scaling_inter;
+	}
+	
+	strncpy(nhdr.descrip, description.c_str(), 80);
+	strncpy(nhdr.aux_file, aux_file.c_str(), 24);
+	
+	if(_nifti_type > NIFTI_FTYPE_ANALYZE) { /* then not ANALYZE */
+		if(_nifti_type == NIFTI_FTYPE_NIFTI1_1)
+			strcpy(nhdr.magic,"n+1");
+		else
+			strcpy(nhdr.magic,"ni1");
+		for (int i = 1; i < 8; i++)
+			nhdr.pixdim[i] = fabs(nhdr.pixdim[i]);
+		
+		nhdr.intent_code = intent_code;
+		nhdr.intent_p1   = intent_p1;
+		nhdr.intent_p2   = intent_p2;
+		nhdr.intent_p3   = intent_p3;
+		strncpy(nhdr.intent_name, intent_name.c_str(), 16);
+		
+		nhdr.vox_offset = _voxoffset ;
+		nhdr.xyzt_units = SPACE_TIME_TO_XYZT(xyz_units, time_units);
+		nhdr.toffset    = toffset ;
+		
+		if(qform_code > 0) {
+			nhdr.qform_code = qform_code ;
+			Quaterniond Q(_qform.rotation());
+			Translation3d T(_qform.translation());
+			nhdr.quatern_b  = Q.x();
+			nhdr.quatern_c  = Q.y();
+			nhdr.quatern_d  = Q.z();
+			nhdr.qoffset_x  = T.x();
+			nhdr.qoffset_y  = T.y();
+			nhdr.qoffset_z  = T.z();
+		}
+		
+		if(sform_code > 0) {
+			nhdr.sform_code = sform_code;
+			for (int i = 0; i < 4; i++)
+			{
+				nhdr.srow_x[i]  = _sform(0, i);
+				nhdr.srow_y[i]  = _sform(1, i);
+				nhdr.srow_z[i]  = _sform(2, i);
+			}
+		}
+		
+		nhdr.dim_info = FPS_INTO_DIM_INFO(freq_dim, phase_dim, slice_dim);
+		nhdr.slice_code     = slice_code;
+		nhdr.slice_start    = slice_start;
+		nhdr.slice_end      = slice_end;
+		nhdr.slice_duration = slice_duration;
+	}
+	znzFile fp = znzopen(_hdrname.c_str(), "wb", _gz);
+	if(znz_isnull(fp)) {
+		std::cerr << "NiftiImage: Cannot open header file " << _hdrname << " for writing." << std::endl;
+		abort();
+	}
+	
+	/* write the header and extensions */
+	size_t bytesWritten = znzwrite(&nhdr, 1, sizeof(nhdr), fp); /* write header */
+	if(bytesWritten < sizeof(nhdr)) {
+		std::cerr << "NiftiImage: Could not write header to file " << _hdrname << "." << std::endl;
+		abort();
+	}
+	znzclose(fp);	
+	/* partial file exists, and errors have been printed, so ignore return */
+	//if( nim->nifti_type != NIFTI_FTYPE_ANALYZE )
+	//	(void)nifti_write_extensions(fp,nim);
 }
 
 void *NiftiImage::readBuffer(size_t start, size_t length)
@@ -7194,12 +7335,12 @@ void *NiftiImage::readBuffer(size_t start, size_t length)
 	}
 	
 	void *raw = malloc(length);
-	znzseek(_imgfile, _voxoffset + start, SEEK_SET);
+	seek(_voxoffset + start, SEEK_SET);
 	size_t bytesRead = znzread(raw, 1, length, _imgfile);
 	
 	if (bytesRead < length)
 	{
-		std::cerr << "NiftiImage: Read volume was short by " << (length - bytesRead)
+		std::cerr << "NiftiImage: Read buffer was short by " << (length - bytesRead)
 				  << " bytes." << std::endl;
 		free(raw);
 		return NULL;
@@ -7207,6 +7348,30 @@ void *NiftiImage::readBuffer(size_t start, size_t length)
 	if (_swapsize > 1 && _byteorder != nifti_short_order())
 		nifti_swap_Nbytes(length / _swapsize, _swapsize, raw);
 	return raw;
+}
+
+void NiftiImage::writeBuffer(void *data, size_t start, size_t length)
+{
+	if (_mode == NIFTI_CLOSED)
+	{
+		std::cerr << "NiftiImage: Cannot write to a closed file." << std::endl;
+		return;
+	}
+	if (_mode == NIFTI_READ)
+	{
+		std::cerr << "NiftiImage: Cannot write to a file opened for writing." << std::endl;
+		return;
+	}
+	
+	seek(_voxoffset + start, SEEK_SET);
+	size_t bytesWritten = znzwrite(data, 1, length, _imgfile);
+	
+	if (bytesWritten < length)
+	{
+		std::cerr << "NiftiImage: Write buffer was short by " << (length - bytesWritten)
+				  << " bytes." << std::endl;
+	}
+	_filesize += bytesWritten;
 }
 
 void *NiftiImage::readRawVolume(const int vol)
@@ -7223,26 +7388,42 @@ void *NiftiImage::readRawAllVolumes()
 		
 void NiftiImage::open(std::string filename, char mode)
 {
+	setFilenames(filename);
 	if (mode == NIFTI_READ) {
 		_mode = NIFTI_READ;
-		readHeader(filename);
+		readHeader(_hdrname);
 		_imgfile = znzopen(_imgname.c_str(), "rb", _gz);
 		if (!_imgfile)
 		{
-			std::cerr << "Could not open image file " << _imgfile << "." << std::endl;
+			std::cerr << "Could not open image file " << _imgfile << " for reading." << std::endl;
 			abort();
 		}
-		znzseek(_imgfile, _voxoffset, SEEK_SET);
+		seek(_voxoffset, SEEK_SET);
 	} else if (mode == NIFTI_WRITE) {
+		_mode = NIFTI_WRITE;
+		writeHeader(_hdrname);
+		if (_hdrname != _imgname)
+			_imgfile = znzopen(_imgname.c_str(), "wb", _gz);
+		else	// If it's a .nii file, we need to append to the header
+			_imgfile = znzopen(_imgname.c_str(), "ab", _gz);
+		if (!_imgfile)
+		{
+			std::cerr << "Could not open image file " << _imgfile << " for writing." << std::endl;
+			abort();
+		}
+		seek(_voxoffset, SEEK_SET);
+		_filesize = _voxoffset;
 	} else {
-		std::cerr << "Invalid NiftImage mode " << mode << "." << std::endl;
+		std::cerr << "Invalid NiftImage mode '" << mode << "'." << std::endl;
 		abort();
 	}
 }
 
 void NiftiImage::close()
 {
+	znzflush(_imgfile); // Have observed missing data when not flushing zipped files before close
 	znzclose(_imgfile);
+	_mode = NIFTI_CLOSED;
 }
 
 NiftiImage::~NiftiImage()
@@ -7250,10 +7431,35 @@ NiftiImage::~NiftiImage()
 	close();
 }
 
+int NiftiImage::ndim() const { return _dim[0]; }
 int NiftiImage::nx() const { return _dim[1]; }
 int NiftiImage::ny() const { return _dim[2]; }
 int NiftiImage::nz() const { return _dim[3]; }
 int NiftiImage::nt() const { return _dim[4]; }
+void NiftiImage::setDims(const int nx, const int ny, const int nz, const int nt)
+{
+	if (_mode == NIFTI_CLOSED)
+	{
+		_dim[1] = nx;
+		_dim[2] = ny;
+		_dim[3] = nz;
+		if (nt > 1)
+		{
+			_dim[4] = nt;
+			_dim[0] = 4;
+		}
+		else
+		{
+			_dim[4] = 1;
+			_dim[0] = 3;
+		}
+	}
+	else
+	{
+		std::cerr << "NiftiImage: Cannot change the dimensions of an image once opened." << std::endl;
+		abort();
+	}
+}
 int NiftiImage::voxelsPerVolume() const { return _dim[1]*_dim[2]*_dim[3]; };
 int NiftiImage::nvox() const { return _dim[1]*_dim[2]*_dim[3]*_dim[4]; };
 float NiftiImage::dx() const { return _voxdim[1]; }
@@ -7268,22 +7474,22 @@ void NiftiImage::setDatatype(const int dt)
 		std::cerr << "NiftiImage: Cannot set the datatype of a file opened for reading." << std::endl;
 		return;
 	}
-	if (is_valid_nifti_type(dt))
+	if (nifti_is_valid_datatype(dt))
 		_datatype = dt;
 	else
 		std::cerr << "NiftiImage: Attempted to set invalid datatype " << dt << std::endl;
 }
 
-const Matrix4d &NiftiImage::qform() const { return _qform; }
-const Matrix4d &NiftiImage::sform() const { return _sform; }
+const Matrix4d &NiftiImage::qform() const { return _qform.matrix(); }
+const Matrix4d &NiftiImage::sform() const { return _sform.matrix(); }
 const Matrix4d &NiftiImage::ijk_to_xyz() const
 {
 	if ((sform_code > 0) && (sform_code >= qform_code))
-		return _sform;
+		return _sform.matrix();
 	else // There is always a _qform matrix
-		return _qform;
+		return _qform.matrix();
 }
 const Matrix4d &NiftiImage::xyz_to_ijk() const
 {
-	return _inverse;
+	return _inverse.matrix();
 }
