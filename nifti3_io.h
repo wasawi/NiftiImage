@@ -16,6 +16,7 @@
 #include <string>
 #include <algorithm>
 #include <complex>
+#include <map>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -144,8 +145,6 @@ typedef struct {
 
 /*****************************************************************************/
 /*--------------- Prototypes of functions defined in this file --------------*/
-
-const char *nifti_datatype_string   ( int dt ) ;
 const char *nifti_units_string      ( int uu ) ;
 const char *nifti_intent_string     ( int ii ) ;
 const char *nifti_xform_string      ( int xx ) ;
@@ -155,13 +154,7 @@ const char *nifti_orientation_string( int ii ) ;
 int   nifti_is_inttype(int dt);
 void  nifti_swap_bytes(size_t n, int siz, void *ar);
 
-int    nifti_datatype_is_valid   (int dtype, int for_nifti);
-int    nifti_datatype_from_string(const char * name);
-const char * nifti_datatype_to_string  (int dtype);
-
-int   nifti_get_filesize( const char *pathname ) ;
 void  swap_nifti_header ( struct nifti_1_header *h , int is_nifti ) ;
-void  old_swap_nifti_header( struct nifti_1_header *h , int is_nifti );
 int   nifti_swap_as_analyze( nifti_analyze75 *h );
 
 
@@ -174,7 +167,6 @@ int    disp_nifti_1_header(const char * info, const nifti_1_header * hp ) ;
 void   nifti_set_debug_level( int level ) ;
 void   nifti_set_skip_blank_ext( int skip ) ;
 void   nifti_set_allow_upper_fext( int allow ) ;
-void nifti_datatype_sizes( int datatype , int *nbyper, int *swapsize ) ;
 int nifti_short_order(void) ;              /* CPU byte order */
 
 
@@ -190,20 +182,9 @@ int nifti_short_order(void) ;              /* CPU byte order */
 void nifti_matrix4d_to_orientation( Matrix4d R , int *icod, int *jcod, int *kcod ) ;
 
 /*--------------------- Low level IO routines ------------------------------*/
-
-char * nifti_findhdrname (const char* fname);
-char * nifti_findimgname (const char* fname , int nifti_type);
-int    nifti_is_gzfile   (const char* fname);
-
-char * nifti_makebasename(const char* fname);
-
-
 /* other routines */
 int    nifti_hdr_looks_good        (const nifti_1_header * hdr);
-int    nifti_is_valid_datatype     (int dtype);
 int    nifti_is_valid_ecode        (int ecode);
-int    is_valid_nifti_type         (int nifti_type);
-int    nifti_test_datatype_sizes   (int verb);
 /*int    nifti_add_extension(nifti_image * nim, const char * data, int len,
                            int ecode );
 int    nifti_compiled_with_zlib    (void);
@@ -306,6 +287,13 @@ enum NIFTIIMAGE_MODES
 	NIFTI_WRITE = 'w'
 };
 
+struct NiftiDataTypeInfo
+{
+	int size, swapsize;
+	std::string name;
+};
+typedef std::map<int, NiftiDataTypeInfo> DTMap;
+
 class NiftiImage
 {
 	private:
@@ -313,12 +301,11 @@ class NiftiImage
 		float _voxdim[8];
 		Affine3d _qform, _sform, _inverse;
 		
-		std::string _imgname, _hdrname;     /* Paths to header and image files*/
+		std::string _basename, _imgname, _hdrname;     /* Paths to header and image files*/
 		long _currpos, _filesize;           // Location within file, total written size in bytes
-		int _voxoffset, _nbyper, _swapsize, _byteorder; /* Offset and byte swap info */
+		int _voxoffset, _byteorder; /* Offset and byte swap info */
 		int _datatype;                      /* Datatype on disk */
-		int _nifti_type;
-		int _iname_offset, _num_ext;
+		int _num_ext;
 		nifti1_extension *_ext_list;
 		char _mode;
 		bool _gz;
@@ -340,25 +327,25 @@ class NiftiImage
 					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
 					// should be interchangeable even at pointer level, so the following
 					// should work.
-					case DT_INT8:      converted[i] = (T)((char *)raw)[i]; break;
-					case DT_UINT8:     converted[i] = (T)((unsigned char *)raw)[i]; break;
-					case DT_INT16:     converted[i] = (T)((short *)raw)[i]; break;
-					case DT_UINT16:    converted[i] = (T)((unsigned short *)raw)[i]; break;
+					case NIFTI_TYPE_INT8:      converted[i] = (T)((char *)raw)[i]; break;
+					case NIFTI_TYPE_UINT8:     converted[i] = (T)((unsigned char *)raw)[i]; break;
+					case NIFTI_TYPE_INT16:     converted[i] = (T)((short *)raw)[i]; break;
+					case NIFTI_TYPE_UINT16:    converted[i] = (T)((unsigned short *)raw)[i]; break;
 						
-					case DT_RGB24:     break ;
-					case DT_RGBA32:    break ;
+					case NIFTI_TYPE_RGB24:     break ;
+					case NIFTI_TYPE_RGBA32:    break ;
 						
-					case DT_INT32:     converted[i] = (T)((int *)raw)[i]; break;
-					case DT_UINT32:    converted[i] = (T)((unsigned int *)raw)[i]; break;
+					case NIFTI_TYPE_INT32:     converted[i] = (T)((int *)raw)[i]; break;
+					case NIFTI_TYPE_UINT32:    converted[i] = (T)((unsigned int *)raw)[i]; break;
 					
-					case DT_FLOAT32:   converted[i] = (T)((float *)raw)[i]; break;
+					case NIFTI_TYPE_FLOAT32:   converted[i] = (T)((float *)raw)[i]; break;
 					//case DT_COMPLEX64: converted[i] = (T)((std::complex<float> *)raw)[i]; break;
 						
-					case DT_FLOAT64:   converted[i] = (T)((double *)raw)[i]; break;
-					case DT_INT64:     converted[i] = (T)((long *)raw)[i]; break;
-					case DT_UINT64:    converted[i] = (T)((unsigned long *)raw)[i]; break;
+					case NIFTI_TYPE_FLOAT64:   converted[i] = (T)((double *)raw)[i]; break;
+					case NIFTI_TYPE_INT64:     converted[i] = (T)((long *)raw)[i]; break;
+					case NIFTI_TYPE_UINT64:    converted[i] = (T)((unsigned long *)raw)[i]; break;
 						
-					case DT_FLOAT128:  converted[i] = (T)((long double *)raw)[i]; break;
+					case NIFTI_TYPE_FLOAT128:  converted[i] = (T)((long double *)raw)[i]; break;
 						
 					//case DT_COMPLEX128: converted[i] = (T)((std::complex<double> *)raw)[i]; break;
 						
@@ -369,31 +356,31 @@ class NiftiImage
 		}
 		template<typename T> void *convertToBuffer(const T *raw, const size_t bufferSize)
 		{
-			void *converted = malloc(_nbyper * bufferSize);
+			void *converted = malloc(DTypes.find(_datatype)->second.size * bufferSize);
 			for (int i = 0; i < bufferSize; i++) {
 				switch (_datatype) {
 					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
 					// should be interchangeable even at pointer level, so the following
 					// should work.
-					case DT_INT8:      ((char *)converted)[i] =          raw[i]; break;
-					case DT_UINT8:     ((unsigned char *)converted)[i] =  raw[i]; break;
-					case DT_INT16:     ((short *)converted)[i] =          raw[i]; break;
-					case DT_UINT16:    ((unsigned short *)converted)[i] = raw[i]; break;
+					case NIFTI_TYPE_INT8:      ((char *)converted)[i] =          raw[i]; break;
+					case NIFTI_TYPE_UINT8:     ((unsigned char *)converted)[i] =  raw[i]; break;
+					case NIFTI_TYPE_INT16:     ((short *)converted)[i] =          raw[i]; break;
+					case NIFTI_TYPE_UINT16:    ((unsigned short *)converted)[i] = raw[i]; break;
 						
-					case DT_RGB24:     break ;
-					case DT_RGBA32:    break ;
+					case NIFTI_TYPE_RGB24:     break ;
+					case NIFTI_TYPE_RGBA32:    break ;
 						
-					case DT_INT32:     ((int *)converted)[i] =          raw[i]; break;
-					case DT_UINT32:    ((unsigned int *)converted)[i] = raw[i]; break;
+					case NIFTI_TYPE_INT32:     ((int *)converted)[i] =          raw[i]; break;
+					case NIFTI_TYPE_UINT32:    ((unsigned int *)converted)[i] = raw[i]; break;
 					
-					case DT_FLOAT32:   ((float *)converted)[i] =        raw[i]; break;
+					case NIFTI_TYPE_FLOAT32:   ((float *)converted)[i] =        raw[i]; break;
 					//case DT_COMPLEX64: converted[i] = (T)((std::complex<float> *)raw)[i]; break;
 						
-					case DT_FLOAT64:   ((double *)converted)[i] =        raw[i]; break;
-					case DT_INT64:     ((long *)converted)[i] =          raw[i]; break;
-					case DT_UINT64:    ((unsigned long *)converted)[i] = raw[i]; break;
+					case NIFTI_TYPE_FLOAT64:   ((double *)converted)[i] =        raw[i]; break;
+					case NIFTI_TYPE_INT64:     ((long *)converted)[i] =          raw[i]; break;
+					case NIFTI_TYPE_UINT64:    ((unsigned long *)converted)[i] = raw[i]; break;
 						
-					case DT_FLOAT128:  ((long double *)converted)[i] =   raw[i]; break;
+					case NIFTI_TYPE_FLOAT128:  ((long double *)converted)[i] =   raw[i]; break;
 						
 					//case DT_COMPLEX128: converted[i] = (T)((std::complex<double> *)raw)[i]; break;
 						
@@ -402,7 +389,9 @@ class NiftiImage
 			}
 			return converted;
 		}
-	
+		static const DTMap DTypes;
+		static const std::string &DTypeToString(const int dtype);
+		static const bool DTypeIsValid(const int dtype);
 	public:
 		~NiftiImage();
 		NiftiImage();
@@ -411,13 +400,17 @@ class NiftiImage
 		           const float dx, const float dy, const float dz, const float dt);
 		NiftiImage(const std::string filename);
 		
+		static void printDTypeList();
+		
 		void open(std::string filename, char mode);
 		void close();
+		const std::string &basename();
 		void *readRawVolume(const int vol);
 		void *readRawAllVolumes();
 		template<typename T> T *readVolume(const int vol)
 		{
-			size_t bytesPerVolume = voxelsPerVolume() * _nbyper;
+			size_t bytesPerVolume = voxelsPerVolume() *
+			                        DTypes.find(_datatype)->second.size;
 			void *raw = readBuffer(vol * bytesPerVolume, bytesPerVolume);
 			T *converted = convertBuffer<T>(raw, voxelsPerVolume());
 			free(raw);
@@ -426,7 +419,7 @@ class NiftiImage
 		
 		template<typename T> T *readAllVolumes()
 		{
-			void *raw =	readBuffer(0, nvox() * _nbyper);
+			void *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.size);
 			T *converted = convertBuffer<T>(raw, nvox());
 			free(raw);
 			return converted;
@@ -434,7 +427,7 @@ class NiftiImage
 		
 		template<typename T> void writeVolume(const int vol, T *data)
 		{
-			size_t bytesPerVolume = voxelsPerVolume() * _nbyper;
+			size_t bytesPerVolume = voxelsPerVolume() * DTypes.find(_datatype)->second.size;
 			void *converted = convertToBuffer<T>(data, voxelsPerVolume());
 			writeBuffer(converted, vol * bytesPerVolume, bytesPerVolume);
 			free(converted);
@@ -443,7 +436,7 @@ class NiftiImage
 		template<typename T> void writeAllVolumes(T *data)
 		{
 			void *converted = convertBuffer<T>(data, nvox());
-			writeBuffer(converted, 0, nvox() * _nbyper);
+			writeBuffer(converted, 0, nvox() * DTypes.find(_datatype)->second.size);
 			free(converted);
 		}
 		
@@ -494,9 +487,6 @@ class NiftiImage
 	
 		int xyz_units;                /*!< dx,dy,dz units: NIFTI_UNITS_* code  */
 		int time_units;               /*!< dt       units: NIFTI_UNITS_* code  */
-	
-		int nifti_type() const;       /*!< 0==ANALYZE, 1==NIFTI-1 (1 file),
-								           2==NIFTI-1 (2 files) */
 		int   intent_code ;           /*!< statistic type (or something)       */
 		float intent_p1 ;             /*!< intent parameters                   */
 		float intent_p2 ;             /*!< intent parameters                   */

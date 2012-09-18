@@ -9,53 +9,76 @@ History NiftiImage:\n\
 ----------------------------------------------------------------------\n";
 static const std::string lib_version = "NiftiImage version 0.1 (18 Sep, 2012)";
 
-/*! global nifti types structure list (per type, ordered oldest to newest) */
-static const nifti_type_ele nifti_type_list[] = {
-    /* type  nbyper  swapsize   name  */
-    {    0,     0,       0,   "DT_UNKNOWN"              },
-    {    0,     0,       0,   "DT_NONE"                 },
-    {    1,     0,       0,   "DT_BINARY"               },  /* not usable */
-    {    2,     1,       0,   "DT_UNSIGNED_CHAR"        },
-    {    2,     1,       0,   "DT_UINT8"                },
-    {    2,     1,       0,   "NIFTI_TYPE_UINT8"        },
-    {    4,     2,       2,   "DT_SIGNED_SHORT"         },
-    {    4,     2,       2,   "DT_INT16"                },
-    {    4,     2,       2,   "NIFTI_TYPE_INT16"        },
-    {    8,     4,       4,   "DT_SIGNED_INT"           },
-    {    8,     4,       4,   "DT_INT32"                },
-    {    8,     4,       4,   "NIFTI_TYPE_INT32"        },
-    {   16,     4,       4,   "DT_FLOAT"                },
-    {   16,     4,       4,   "DT_FLOAT32"              },
-    {   16,     4,       4,   "NIFTI_TYPE_FLOAT32"      },
-    {   32,     8,       4,   "DT_COMPLEX"              },
-    {   32,     8,       4,   "DT_COMPLEX64"            },
-    {   32,     8,       4,   "NIFTI_TYPE_COMPLEX64"    },
-    {   64,     8,       8,   "DT_DOUBLE"               },
-    {   64,     8,       8,   "DT_FLOAT64"              },
-    {   64,     8,       8,   "NIFTI_TYPE_FLOAT64"      },
-    {  128,     3,       0,   "DT_RGB"                  },
-    {  128,     3,       0,   "DT_RGB24"                },
-    {  128,     3,       0,   "NIFTI_TYPE_RGB24"        },
-    {  255,     0,       0,   "DT_ALL"                  },
-    {  256,     1,       0,   "DT_INT8"                 },
-    {  256,     1,       0,   "NIFTI_TYPE_INT8"         },
-    {  512,     2,       2,   "DT_UINT16"               },
-    {  512,     2,       2,   "NIFTI_TYPE_UINT16"       },
-    {  768,     4,       4,   "DT_UINT32"               },
-    {  768,     4,       4,   "NIFTI_TYPE_UINT32"       },
-    { 1024,     8,       8,   "DT_INT64"                },
-    { 1024,     8,       8,   "NIFTI_TYPE_INT64"        },
-    { 1280,     8,       8,   "DT_UINT64"               },
-    { 1280,     8,       8,   "NIFTI_TYPE_UINT64"       },
-    { 1536,    16,      16,   "DT_FLOAT128"             },
-    { 1536,    16,      16,   "NIFTI_TYPE_FLOAT128"     },
-    { 1792,    16,       8,   "DT_COMPLEX128"           },
-    { 1792,    16,       8,   "NIFTI_TYPE_COMPLEX128"   },
-    { 2048,    32,      16,   "DT_COMPLEX256"           },
-    { 2048,    32,      16,   "NIFTI_TYPE_COMPLEX256"   },
-    { 2304,     4,       0,   "DT_RGBA32"               },
-    { 2304,     4,       0,   "NIFTI_TYPE_RGBA32"       },
+const DTMap NiftiImage::DTypes
+{
+  {NIFTI_TYPE_UINT8,    {1, 0, "NIFTI_TYPE_UINT8"} },
+  {NIFTI_TYPE_INT16,    {2, 2, "NIFTI_TYPE_INT16"} },
+  {NIFTI_TYPE_INT32,    {4, 4, "NIFTI_TYPE_INT32"} },
+  {NIFTI_TYPE_FLOAT32,   {4, 4, "NIFTI_TYPE_FLOAT32"} },
+  {NIFTI_TYPE_COMPLEX64,   {8, 4, "NIFTI_TYPE_COMPLEX64"} },
+  {NIFTI_TYPE_FLOAT64,   {8, 8, "NIFTI_TYPE_FLOAT64"} },
+  {NIFTI_TYPE_RGB24,  {3, 0, "NIFTI_TYPE_RGB24"} },
+  {NIFTI_TYPE_INT8,  {1, 0, "NIFTI_TYPE_INT8"} },
+  {NIFTI_TYPE_UINT16,  {2, 2, "NIFTI_TYPE_UINT16"} },
+  {NIFTI_TYPE_UINT32,  {4, 4, "NIFTI_TYPE_UINT32"} },
+  {NIFTI_TYPE_INT64, {8, 8, "NIFTI_TYPE_INT64"} },
+  {NIFTI_TYPE_UINT64, {8, 8, "NIFTI_TYPE_UINT64"} },
+  {NIFTI_TYPE_FLOAT128, {16, 16, "NIFTI_TYPE_FLOAT128"} },
+  {NIFTI_TYPE_COMPLEX128, {16,  8, "NIFTI_TYPE_COMPLEX128"} },
+  {NIFTI_TYPE_COMPLEX256, {32, 16, "NIFTI_TYPE_COMPLEX256"} },
+  {NIFTI_TYPE_RGBA32, {4,   0, "NIFTI_TYPE_RGBA32"} }
 };
+
+/*---------------------------------------------------------------------*/
+/*! Given a NIFTI_TYPE value, such as NIFTI_TYPE_INT16, return the
+ *  corresponding label as a string.  The dtype code is the
+ *  macro value defined in nifti1.h.
+ *//*-------------------------------------------------------------------*/
+const std::string &NiftiImage::DTypeToString(const int dtype)
+{
+	static const std::string notfound{"DT_NOTFOUND"};
+	DTMap::const_iterator it = DTypes.find(dtype);
+	if (it == DTypes.end())
+		return notfound;
+	else
+		return it->second.name;
+}
+
+
+/*---------------------------------------------------------------------*/
+/*! Determine whether dtype is a valid NIFTI_TYPE.
+ *
+ *  DT_UNKNOWN is considered invalid
+ *
+ *  The only difference 'for_nifti' makes is that DT_BINARY
+ *  should be invalid for a NIfTI dataset.
+ *//*-------------------------------------------------------------------*/
+const bool NiftiImage::DTypeIsValid(const int dtype)
+{
+    DTMap::const_iterator it = DTypes.find(dtype);
+	if (it == DTypes.end())
+		return false;
+	else
+		return true;
+}
+
+/*---------------------------------------------------------------------*/
+/*! Display the nifti_type_list table.
+ *//*-------------------------------------------------------------------*/
+void NiftiImage::printDTypeList()
+{
+	std::cout << "NiftiImage Valid Datatypes" << std::endl;
+	std::cout << "Name                Type    Size (bytes) Swapsize (bytes)" << std::endl;
+	
+	DTMap::const_iterator it;
+	for (it = DTypes.begin(); it != DTypes.end(); it++)
+	{
+		std::cout << it->second.name << " "
+				  << it->first << " "
+				  << it->second.size << " "
+				  << it->second.swapsize << std::endl;
+	}
+}
 
 /*---------------------------------------------------------------------------*/
 /* prototypes for internal functions - not part of exported library          */
@@ -75,75 +98,7 @@ static int  nifti_fill_extension(nifti1_extension * ext, const char * data,
 static int  rci_alloc_mem(void ** data, int prods[8], int nprods, int nbyper );
 static int  make_pivot_list(nifti_image * nim, const int dims[], int pivots[],
                             int prods[], int * nprods );*/
-
-/*---------------------------------------------------------------------------*/
-/*! Return a pointer to a string holding the name of a NIFTI datatype.
- 
- \param dt NIfTI-1 datatype
- 
- \return pointer to static string holding the datatype name
- 
- \warning Do not free() or modify this string!
- It points to static storage.
- 
- \sa NIFTI1_DATATYPES group in nifti1.h
- *//*-------------------------------------------------------------------------*/
-const char *nifti_datatype_string( int dt )
-{
-	switch( dt ){
-		case DT_UNKNOWN:    return "UNKNOWN"    ;
-		case DT_BINARY:     return "BINARY"     ;
-		case DT_INT8:       return "INT8"       ;
-		case DT_UINT8:      return "UINT8"      ;
-		case DT_INT16:      return "INT16"      ;
-		case DT_UINT16:     return "UINT16"     ;
-		case DT_INT32:      return "INT32"      ;
-		case DT_UINT32:     return "UINT32"     ;
-		case DT_INT64:      return "INT64"      ;
-		case DT_UINT64:     return "UINT64"     ;
-		case DT_FLOAT32:    return "FLOAT32"    ;
-		case DT_FLOAT64:    return "FLOAT64"    ;
-		case DT_FLOAT128:   return "FLOAT128"   ;
-		case DT_COMPLEX64:  return "COMPLEX64"  ;
-		case DT_COMPLEX128: return "COMPLEX128" ;
-		case DT_COMPLEX256: return "COMPLEX256" ;
-		case DT_RGB24:      return "RGB24"      ;
-		case DT_RGBA32:     return "RGBA32"     ;
-	}
-	return "**ILLEGAL**" ;
-}
-
 /*----------------------------------------------------------------------*/
-/*! Determine if the datatype code dt is an integer type (1=YES, 0=NO).
- 
- \return whether the given NIfTI-1 datatype code is valid
- 
- \sa     NIFTI1_DATATYPES group in nifti1.h
- *//*--------------------------------------------------------------------*/
-int nifti_is_inttype( int dt )
-{
-	switch( dt ){
-		case DT_UNKNOWN:    return 0 ;
-		case DT_BINARY:     return 0 ;
-		case DT_INT8:       return 1 ;
-		case DT_UINT8:      return 1 ;
-		case DT_INT16:      return 1 ;
-		case DT_UINT16:     return 1 ;
-		case DT_INT32:      return 1 ;
-		case DT_UINT32:     return 1 ;
-		case DT_INT64:      return 1 ;
-		case DT_UINT64:     return 1 ;
-		case DT_FLOAT32:    return 0 ;
-		case DT_FLOAT64:    return 0 ;
-		case DT_FLOAT128:   return 0 ;
-		case DT_COMPLEX64:  return 0 ;
-		case DT_COMPLEX128: return 0 ;
-		case DT_COMPLEX256: return 0 ;
-		case DT_RGB24:      return 1 ;
-		case DT_RGBA32:     return 1 ;
-	}
-	return 0 ;
-}
 
 /*---------------------------------------------------------------------------*/
 /*! Return a pointer to a string holding the name of a NIFTI units type.
@@ -300,52 +255,6 @@ const char *nifti_orientation_string( int ii )
 		case NIFTI_S2I: return "Superior-to-Inferior" ;
 	}
 	return "Unknown" ;
-}
-
-/*--------------------------------------------------------------------------*/
-/*! Given a datatype code, set number of bytes per voxel and the swapsize.
- 
- \param datatype nifti1 datatype code
- \param nbyper   pointer to return value: number of bytes per voxel
- \param swapsize pointer to return value: size of swap blocks
- 
- \return appropriate values at nbyper and swapsize
- 
- The swapsize is set to 0 if this datatype doesn't ever need swapping.
- 
- \sa NIFTI1_DATATYPES in nifti1.h
- *//*------------------------------------------------------------------------*/
-void nifti_datatype_sizes( int datatype , int *nbyper, int *swapsize )
-{
-	int nb=0, ss=0 ;
-	switch( datatype ){
-		case DT_INT8:
-		case DT_UINT8:       nb =  1 ; ss =  0 ; break ;
-			
-		case DT_INT16:
-		case DT_UINT16:      nb =  2 ; ss =  2 ; break ;
-			
-		case DT_RGB24:       nb =  3 ; ss =  0 ; break ;
-		case DT_RGBA32:      nb =  4 ; ss =  0 ; break ;
-			
-		case DT_INT32:
-		case DT_UINT32:
-		case DT_FLOAT32:     nb =  4 ; ss =  4 ; break ;
-			
-		case DT_COMPLEX64:   nb =  8 ; ss =  4 ; break ;
-			
-		case DT_FLOAT64:
-		case DT_INT64:
-		case DT_UINT64:      nb =  8 ; ss =  8 ; break ;
-			
-		case DT_FLOAT128:    nb = 16 ; ss = 16 ; break ;
-			
-		case DT_COMPLEX128:  nb = 16 ; ss =  8 ; break ;
-			
-		case DT_COMPLEX256:  nb = 32 ; ss = 16 ; break ;
-	}
-	
-	ASSIF(nbyper,nb) ; ASSIF(swapsize,ss) ; return ;
 }
 /*---------------------------------------------------------------------------*/
 /*! compute the (closest) orientation from a 4x4 ijk->xyz tranformation matrix
@@ -679,36 +588,6 @@ int is_valid_nifti_type( int nifti_type )
 	if( nifti_type >= NIFTI_FTYPE_ANALYZE &&   /* smallest type, 0 */
        nifti_type <= NIFTI_MAX_FTYPE )
 		return 1;
-	return 0;
-}
-
-/*--------------------------------------------------------------------------*/
-/*! check whether the given type is on the "approved" list
- 
- The type is explicitly checked against the NIFTI_TYPE_* list
- in nifti1.h.
- 
- \return 1 if dtype is valid, 0 otherwise
- \sa NIFTI_TYPE_* codes in nifti1.h
- *//*------------------------------------------------------------------------*/
-int nifti_is_valid_datatype( int dtype )
-{
-	if( dtype == NIFTI_TYPE_UINT8        ||
-       dtype == NIFTI_TYPE_INT16        ||
-       dtype == NIFTI_TYPE_INT32        ||
-       dtype == NIFTI_TYPE_FLOAT32      ||
-       dtype == NIFTI_TYPE_COMPLEX64    ||
-       dtype == NIFTI_TYPE_FLOAT64      ||
-       dtype == NIFTI_TYPE_RGB24        ||
-       dtype == NIFTI_TYPE_RGBA32       ||
-       dtype == NIFTI_TYPE_INT8         ||
-       dtype == NIFTI_TYPE_UINT16       ||
-       dtype == NIFTI_TYPE_UINT32       ||
-       dtype == NIFTI_TYPE_INT64        ||
-       dtype == NIFTI_TYPE_UINT64       ||
-       dtype == NIFTI_TYPE_FLOAT128     ||
-       dtype == NIFTI_TYPE_COMPLEX128   ||
-       dtype == NIFTI_TYPE_COMPLEX256 ) return 1;
 	return 0;
 }
 
@@ -1411,126 +1290,6 @@ int nifti_short_order(void)   /* determine this CPU's byte order */
 	return (fred.ss == 1) ? LSB_FIRST : MSB_FIRST ;
 }
 
-#undef ISEND
-#define ISEND(c) ( (c)==']' || (c)=='}' || (c)=='\0' )
-
-/*---------------------------------------------------------------------*/
-/*! Given a NIFTI_TYPE string, such as "NIFTI_TYPE_INT16", return the
- *  corresponding integral type code.  The type code is the macro
- *  value defined in nifti1.h.
- *//*-------------------------------------------------------------------*/
-int nifti_datatype_from_string( const char * name )
-{
-    int tablen = sizeof(nifti_type_list)/sizeof(nifti_type_ele);
-    int c;
-	
-    if( !name ) return DT_UNKNOWN;
-	
-    for( c = tablen-1; c > 0; c-- )
-        if( !strcmp(name, nifti_type_list[c].name) )
-            break;
-	
-    return nifti_type_list[c].type;
-}
-
-
-/*---------------------------------------------------------------------*/
-/*! Given a NIFTI_TYPE value, such as NIFTI_TYPE_INT16, return the
- *  corresponding macro label as a string.  The dtype code is the
- *  macro value defined in nifti1.h.
- *//*-------------------------------------------------------------------*/
-const char * nifti_datatype_to_string( int dtype )
-{
-    int tablen = sizeof(nifti_type_list)/sizeof(nifti_type_ele);
-    int c;
-	
-    for( c = tablen-1; c > 0; c-- )
-        if( nifti_type_list[c].type == dtype )
-            break;
-	
-    return nifti_type_list[c].name;
-}
-
-
-/*---------------------------------------------------------------------*/
-/*! Determine whether dtype is a valid NIFTI_TYPE.
- *
- *  DT_UNKNOWN is considered invalid
- *
- *  The only difference 'for_nifti' makes is that DT_BINARY
- *  should be invalid for a NIfTI dataset.
- *//*-------------------------------------------------------------------*/
-int nifti_datatype_is_valid( int dtype, int for_nifti )
-{
-    int tablen = sizeof(nifti_type_list)/sizeof(nifti_type_ele);
-    int c;
-	
-    /* special case */
-    if( for_nifti && dtype == DT_BINARY ) return 0;
-	
-    for( c = tablen-1; c > 0; c-- )
-        if( nifti_type_list[c].type == dtype )
-            return 1;
-	
-    return 0;
-}
-
-/*---------------------------------------------------------------------*/
-/*! Display the nifti_type_list table.
- *
- *  if which == 1  : display DT_*
- *  if which == 2  : display NIFTI_TYPE*
- *  else           : display all
- *//*-------------------------------------------------------------------*/
-int nifti_disp_type_list( int which )
-{
-    char * style;
-    int    tablen = sizeof(nifti_type_list)/sizeof(nifti_type_ele);
-    int    lwhich, c;
-	
-    if     ( which == 1 ){ lwhich = 1; style = (char *)"DT_"; }
-    else if( which == 2 ){ lwhich = 2; style = (char *)"NIFTI_TYPE_"; }
-    else                 { lwhich = 3; style = (char *)"ALL"; }
-	
-    printf("nifti_type_list entries (%s) :\n"
-           "  name                    type    nbyper    swapsize\n"
-           "  ---------------------   ----    ------    --------\n", style);
-	
-    for( c = 0; c < tablen; c++ )
-        if( (lwhich & 1 && nifti_type_list[c].name[0] == 'D')  ||
-		   (lwhich & 2 && nifti_type_list[c].name[0] == 'N')     )
-            printf("  %-22s %5d     %3d      %5d\n",
-                   nifti_type_list[c].name,
-                   nifti_type_list[c].type,
-                   nifti_type_list[c].nbyper,
-                   nifti_type_list[c].swapsize);
-	
-    return 0;
-}
-
-/*class NiftiImage
-{
-	private:
-		int _dim[8];
-		float _voxdim[8];
-		Matrix4d _qform, _sform;
-		
-		std::string _hdr_path, _img_path;
-		int _offset, _swapsize, _byteorder;
-		char _mode;
-		
-	public:
-		NiftiImage();
-		NiftiImage(const NiftiImage &clone);
-		NiftiImage(const int nx, const int ny, const int nz, const int nt,
-		           const float dx, const float dy, const float dz, const float dt);
-		NiftiImage(const std::string filename);
-		
-		void open(std::string filename, char mode);
-		void close();
-		void writeHeader();
-}*/
-
 NiftiImage::NiftiImage() :
 	_dim(),
 	_voxdim(),
@@ -1538,6 +1297,36 @@ NiftiImage::NiftiImage() :
 	_gz(false)
 {
 	_qform.setIdentity(); _sform.setIdentity();
+}
+
+NiftiImage::NiftiImage(const NiftiImage &clone) :
+	_nvox(clone._nvox),
+	_qform(clone._qform), _sform(clone._sform), _inverse(clone._inverse),
+	_datatype(clone._datatype),	_mode(NIFTI_CLOSED), _gz(false),
+	_voxoffset(0),
+	scaling_slope(clone.scaling_slope), scaling_inter(clone.scaling_inter),
+	calibration_min(clone.calibration_min), calibration_max(clone.calibration_max),
+	qform_code(clone.qform_code), sform_code(clone.sform_code),
+	freq_dim(clone.freq_dim), phase_dim(clone.phase_dim),
+	slice_dim(clone.slice_dim), slice_code(clone.slice_code),
+	slice_start(clone.slice_start), slice_end(clone.slice_end),
+	slice_duration(clone.slice_duration),
+	toffset(clone.toffset),
+	xyz_units(clone.xyz_units), time_units(clone.time_units),
+	intent_code(clone.intent_code),
+	intent_p1(clone.intent_p1), intent_p2(clone.intent_p2), intent_p3(clone.intent_p3),
+	intent_name(clone.intent_name),
+	description(clone.description),
+	aux_file(clone.aux_file)
+{
+	for (int i = 0; i < 8; i++)
+	{
+		_dim[i] = clone._dim[i];
+		_voxdim[i] = clone._voxdim[i];
+	}
+	//int                num_ext ;  /*!< number of extensions in ext_list       */
+	//nifti1_extension * ext_list ; /*!< array of extension structs (with data) */
+	//analyze_75_orient_code analyze75_orient; /*!< for old analyze files, orient */
 }
 
 bool isGZippedFile(const std::string &fname)
@@ -1555,21 +1344,21 @@ bool isGZippedFile(const std::string &fname)
 void NiftiImage::setFilenames(const std::string &fname)
 {	
 	std::string ext = fname.substr(fname.find_last_of(".") + 1);
-	std::string basename = fname.substr(0, fname.find_last_of("."));
+	_basename = fname.substr(0, fname.find_last_of("."));
 	if (ext == "gz")
 	{
 		_gz = true;
-		ext = basename.substr(basename.find_last_of(".") + 1);
-		basename = basename.substr(0, basename.find_last_of("."));
+		ext = _basename.substr(_basename.find_last_of(".") + 1);
+		_basename = _basename.substr(0, _basename.find_last_of("."));
 	}
 	if (ext == "hdr" || ext == "img")
 	{
-		_imgname = basename + ".img";
-		_hdrname = basename + ".hdr";
+		_imgname = _basename + ".img";
+		_hdrname = _basename + ".hdr";
 	}
 	else if (ext == "nii")
 	{
-		_imgname = _hdrname = basename + ".nii";
+		_imgname = _hdrname = _basename + ".nii";
 	}
 	else
 	{
@@ -1583,6 +1372,7 @@ void NiftiImage::setFilenames(const std::string &fname)
 	}
 }
 
+const std::string &NiftiImage::basename() { return _basename; }
 /*----------------------------------------------------------------------
  * check whether byte swapping is needed
  *
@@ -1747,10 +1537,6 @@ void NiftiImage::readHeader(std::string path)
 	/**- set the type of data in voxels and how many bytes per voxel */
 	_datatype = nhdr.datatype;
 	
-	nifti_datatype_sizes(_datatype, &_nbyper, &_swapsize);
-	if(_nbyper == 0 )
-		std::cerr << "Bad datatype in header " << _hdrname << std::endl;
-	
 	/**- compute qto_xyz transformation from pixel indexes (i,j,k) to (x,y,z) */
 	Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
 	if( !is_nifti || nhdr.qform_code <= 0 ){
@@ -1853,8 +1639,8 @@ void NiftiImage::writeHeader(std::string path)
 	struct nifti_1_header nhdr;
 	memset(&nhdr,0,sizeof(nhdr)) ;  /* zero out header, to be safe */
 	/**- load the ANALYZE-7.5 generic parts of the header struct */
-	nhdr.sizeof_hdr = sizeof(nhdr) ;
-	nhdr.regular    = 'r' ;             /* for some stupid reason */
+	nhdr.sizeof_hdr = sizeof(nhdr);
+	nhdr.regular    = 'r';             /* for some stupid reason */
 	
 	for (int i = 0; i < 8; i++)
 	{	// Copy this way so types can be changed
@@ -1863,7 +1649,7 @@ void NiftiImage::writeHeader(std::string path)
 	}
 	
 	nhdr.datatype = _datatype;
-	nhdr.bitpix   = 8 * _nbyper;
+	nhdr.bitpix   = 8 * DTypes.find(_datatype)->second.size;
 	
 	if(calibration_max > calibration_min) {
 		nhdr.cal_max = calibration_max;
@@ -1878,52 +1664,55 @@ void NiftiImage::writeHeader(std::string path)
 	strncpy(nhdr.descrip, description.c_str(), 80);
 	strncpy(nhdr.aux_file, aux_file.c_str(), 24);
 	
-	if(_nifti_type > NIFTI_FTYPE_ANALYZE) { /* then not ANALYZE */
-		if(_nifti_type == NIFTI_FTYPE_NIFTI1_1)
-			strcpy(nhdr.magic,"n+1");
-		else
-			strcpy(nhdr.magic,"ni1");
-		for (int i = 1; i < 8; i++)
-			nhdr.pixdim[i] = fabs(nhdr.pixdim[i]);
-		
-		nhdr.intent_code = intent_code;
-		nhdr.intent_p1   = intent_p1;
-		nhdr.intent_p2   = intent_p2;
-		nhdr.intent_p3   = intent_p3;
-		strncpy(nhdr.intent_name, intent_name.c_str(), 16);
-		
-		nhdr.vox_offset = _voxoffset ;
-		nhdr.xyzt_units = SPACE_TIME_TO_XYZT(xyz_units, time_units);
-		nhdr.toffset    = toffset ;
-		
-		if(qform_code > 0) {
-			nhdr.qform_code = qform_code ;
-			Quaterniond Q(_qform.rotation());
-			Translation3d T(_qform.translation());
-			nhdr.quatern_b  = Q.x();
-			nhdr.quatern_c  = Q.y();
-			nhdr.quatern_d  = Q.z();
-			nhdr.qoffset_x  = T.x();
-			nhdr.qoffset_y  = T.y();
-			nhdr.qoffset_z  = T.z();
-		}
-		
-		if(sform_code > 0) {
-			nhdr.sform_code = sform_code;
-			for (int i = 0; i < 4; i++)
-			{
-				nhdr.srow_x[i]  = _sform(0, i);
-				nhdr.srow_y[i]  = _sform(1, i);
-				nhdr.srow_z[i]  = _sform(2, i);
-			}
-		}
-		
-		nhdr.dim_info = FPS_INTO_DIM_INFO(freq_dim, phase_dim, slice_dim);
-		nhdr.slice_code     = slice_code;
-		nhdr.slice_start    = slice_start;
-		nhdr.slice_end      = slice_end;
-		nhdr.slice_duration = slice_duration;
+
+	if(_imgname == _hdrname)
+		strcpy(nhdr.magic,"n+1");
+	else
+		strcpy(nhdr.magic,"ni1");
+	for (int i = 1; i < 8; i++)
+		nhdr.pixdim[i] = fabs(nhdr.pixdim[i]);
+	
+	nhdr.intent_code = intent_code;
+	nhdr.intent_p1   = intent_p1;
+	nhdr.intent_p2   = intent_p2;
+	nhdr.intent_p3   = intent_p3;
+	strncpy(nhdr.intent_name, intent_name.c_str(), 16);
+	
+	// Check that _voxoffset is sensible
+	if (_imgname == _hdrname && _voxoffset < nhdr.sizeof_hdr)
+		_voxoffset = 352;
+	nhdr.vox_offset = _voxoffset ;
+	nhdr.xyzt_units = SPACE_TIME_TO_XYZT(xyz_units, time_units);
+	nhdr.toffset    = toffset ;
+	
+	if(qform_code > 0) {
+		nhdr.qform_code = qform_code ;
+		Quaterniond Q(_qform.rotation());
+		Translation3d T(_qform.translation());
+		nhdr.quatern_b  = Q.x();
+		nhdr.quatern_c  = Q.y();
+		nhdr.quatern_d  = Q.z();
+		nhdr.qoffset_x  = T.x();
+		nhdr.qoffset_y  = T.y();
+		nhdr.qoffset_z  = T.z();
 	}
+	
+	if(sform_code > 0) {
+		nhdr.sform_code = sform_code;
+		for (int i = 0; i < 4; i++)
+		{
+			nhdr.srow_x[i]  = _sform(0, i);
+			nhdr.srow_y[i]  = _sform(1, i);
+			nhdr.srow_z[i]  = _sform(2, i);
+		}
+	}
+	
+	nhdr.dim_info = FPS_INTO_DIM_INFO(freq_dim, phase_dim, slice_dim);
+	nhdr.slice_code     = slice_code;
+	nhdr.slice_start    = slice_start;
+	nhdr.slice_end      = slice_end;
+	nhdr.slice_duration = slice_duration;
+	
 	znzFile fp = znzopen(_hdrname.c_str(), "wb", _gz);
 	if(znz_isnull(fp)) {
 		std::cerr << "NiftiImage: Cannot open header file " << _hdrname << " for writing." << std::endl;
@@ -1966,8 +1755,9 @@ void *NiftiImage::readBuffer(size_t start, size_t length)
 		free(raw);
 		return NULL;
 	}
-	if (_swapsize > 1 && _byteorder != nifti_short_order())
-		nifti_swap_bytes(length / _swapsize, _swapsize, raw);
+	int swapsize = DTypes.find(_datatype)->second.swapsize;
+	if (swapsize > 1 && _byteorder != nifti_short_order())
+		nifti_swap_bytes(length / swapsize, swapsize, raw);
 	return raw;
 }
 
@@ -1997,13 +1787,14 @@ void NiftiImage::writeBuffer(void *data, size_t start, size_t length)
 
 void *NiftiImage::readRawVolume(const int vol)
 {
-	size_t bytesPerVolume = voxelsPerVolume() * _nbyper;
+	size_t bytesPerVolume = voxelsPerVolume() *
+	                        DTypes.find(_datatype)->second.size;
 	void *raw = readBuffer(vol * bytesPerVolume, bytesPerVolume);
 	return raw;
 }
 void *NiftiImage::readRawAllVolumes()
 {
-	void *raw =	readBuffer(0, nvox() * _nbyper);
+	void *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.swapsize);
 	return raw;
 }
 		
@@ -2027,6 +1818,7 @@ void NiftiImage::open(std::string filename, char mode)
 			_imgfile = znzopen(_imgname.c_str(), "wb", _gz);
 		else	// If it's a .nii file, we need to append to the header
 			_imgfile = znzopen(_imgname.c_str(), "ab", _gz);
+		_currpos = 0;
 		if (!_imgfile)
 		{
 			std::cerr << "Could not open image file " << _imgfile << " for writing." << std::endl;
@@ -2095,7 +1887,7 @@ void NiftiImage::setDatatype(const int dt)
 		std::cerr << "NiftiImage: Cannot set the datatype of a file opened for reading." << std::endl;
 		return;
 	}
-	if (nifti_is_valid_datatype(dt))
+	if (DTypeIsValid(dt))
 		_datatype = dt;
 	else
 		std::cerr << "NiftiImage: Attempted to set invalid datatype " << dt << std::endl;
