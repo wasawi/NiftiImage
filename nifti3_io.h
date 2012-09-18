@@ -72,96 +72,6 @@ typedef enum _analyze75_orient_code {
 	a75_orient_unknown = 6
 } analyze_75_orient_code;
 
-/*! \struct nifti_image
- \brief High level data structure for open nifti datasets in the
- nifti1_io API.  Note that this structure is not part of the
- nifti1 format definition; it is used to implement one API
- for reading/writing formats in the nifti1 format.
- */
-typedef struct {                /*!< Image storage struct **/
-	
-	int ndim ;                    /*!< last dimension greater than 1 (1..7) */
-	int nx ;                      /*!< dimensions of grid array             */
-	int ny ;                      /*!< dimensions of grid array             */
-	int nz ;                      /*!< dimensions of grid array             */
-	int nt ;                      /*!< dimensions of grid array             */
-	int nu ;                      /*!< dimensions of grid array             */
-	int nv ;                      /*!< dimensions of grid array             */
-	int nw ;                      /*!< dimensions of grid array             */
-	int dim[8] ;                  /*!< dim[0]=ndim, dim[1]=nx, etc.         */
-	size_t nvox ;                    /*!< number of voxels = nx*ny*nz*...*nw   */
-	int nbyper ;                  /*!< bytes per voxel, matches datatype    */
-	int datatype ;                /*!< type of data in voxels: DT_* code    */
-	
-	float dx ;                    /*!< grid spacings      */
-	float dy ;                    /*!< grid spacings      */
-	float dz ;                    /*!< grid spacings      */
-	float dt ;                    /*!< grid spacings      */
-	float du ;                    /*!< grid spacings      */
-	float dv ;                    /*!< grid spacings      */
-	float dw ;                    /*!< grid spacings      */
-	float pixdim[8] ;             /*!< pixdim[1]=dx, etc. */
-	
-	float scl_slope ;             /*!< scaling parameter - slope        */
-	float scl_inter ;             /*!< scaling parameter - intercept    */
-	
-	float cal_min ;               /*!< calibration parameter, minimum   */
-	float cal_max ;               /*!< calibration parameter, maximum   */
-	
-	int qform_code ;              /*!< codes for (x,y,z) space meaning  */
-	int sform_code ;              /*!< codes for (x,y,z) space meaning  */
-	
-	int freq_dim  ;               /*!< indexes (1,2,3, or 0) for MRI    */
-	int phase_dim ;               /*!< directions in dim[]/pixdim[]     */
-	int slice_dim ;               /*!< directions in dim[]/pixdim[]     */
-	
-	int   slice_code  ;           /*!< code for slice timing pattern    */
-	int   slice_start ;           /*!< index for start of slices        */
-	int   slice_end   ;           /*!< index for end of slices          */
-	float slice_duration ;        /*!< time between individual slices   */
-	
-	/*! quaternion transform parameters
-	 [when writing a dataset, these are used for qform, NOT qto_xyz]   */
-	float quatern_b , quatern_c , quatern_d ,
-	qoffset_x , qoffset_y , qoffset_z ,
-	qfac      ;
-	
-	Matrix4d qto_xyz ;               /*!< qform: transform (i,j,k) to (x,y,z) */
-	Matrix4d qto_ijk ;               /*!< qform: transform (x,y,z) to (i,j,k) */
-	
-	Matrix4d sto_xyz ;               /*!< sform: transform (i,j,k) to (x,y,z) */
-	Matrix4d sto_ijk ;               /*!< sform: transform (x,y,z) to (i,j,k) */
-	
-	float toffset ;               /*!< time coordinate offset */
-	
-	int xyz_units  ;              /*!< dx,dy,dz units: NIFTI_UNITS_* code  */
-	int time_units ;              /*!< dt       units: NIFTI_UNITS_* code  */
-	
-	int nifti_type ;              /*!< 0==ANALYZE, 1==NIFTI-1 (1 file),
-								   2==NIFTI-1 (2 files),
-								   3==NIFTI-ASCII (1 file) */
-	int   intent_code ;           /*!< statistic type (or something)       */
-	float intent_p1 ;             /*!< intent parameters                   */
-	float intent_p2 ;             /*!< intent parameters                   */
-	float intent_p3 ;             /*!< intent parameters                   */
-	char  intent_name[16] ;       /*!< optional description of intent data */
-	
-	char descrip[80]  ;           /*!< optional text to describe dataset   */
-	char aux_file[24] ;           /*!< auxiliary filename                  */
-	
-	char *fname ;                 /*!< header filename (.hdr or .nii)         */
-	char *iname ;                 /*!< image filename  (.img or .nii)         */
-	int   iname_offset ;          /*!< offset into iname where data starts    */
-	int   swapsize ;              /*!< swap unit in image data (might be 0)   */
-	int   byteorder ;             /*!< byte order on disk (MSB_ or LSB_FIRST) */
-	void *data ;                  /*!< pointer to data: nbyper*nvox bytes     */
-	
-	int                num_ext ;  /*!< number of extensions in ext_list       */
-	nifti1_extension * ext_list ; /*!< array of extension structs (with data) */
-	analyze_75_orient_code analyze75_orient; /*!< for old analyze files, orient */
-	
-} nifti_image ;
-
 /* struct for return from nifti_image_read_bricks() */
 typedef struct {
 	int       nbricks;    /* the number of allocated pointers in 'bricks' */
@@ -242,13 +152,8 @@ const char *nifti_xform_string      ( int xx ) ;
 const char *nifti_slice_string      ( int ss ) ;
 const char *nifti_orientation_string( int ii ) ;
 
-int   nifti_is_inttype( int dt ) ;
-
-void  nifti_swap_2bytes ( size_t n , void *ar ) ;
-void  nifti_swap_4bytes ( size_t n , void *ar ) ;
-void  nifti_swap_8bytes ( size_t n , void *ar ) ;
-void  nifti_swap_16bytes( size_t n , void *ar ) ;
-void  nifti_swap_Nbytes ( size_t n , int siz , void *ar ) ;
+int   nifti_is_inttype(int dt);
+void  nifti_swap_bytes(size_t n, int siz, void *ar);
 
 int    nifti_datatype_is_valid   (int dtype, int for_nifti);
 int    nifti_datatype_from_string(const char * name);
@@ -260,75 +165,16 @@ void  old_swap_nifti_header( struct nifti_1_header *h , int is_nifti );
 int   nifti_swap_as_analyze( nifti_analyze75 *h );
 
 
-/* main read/write routines */
-
-nifti_image *nifti_image_read_bricks(const char *hname , int nbricks,
-                                     const int *blist, nifti_brick_list * NBL);
-int          nifti_image_load_bricks(nifti_image *nim , int nbricks,
-                                     const int *blist, nifti_brick_list * NBL);
-void         nifti_free_NBL( nifti_brick_list * NBL );
-
-nifti_image *nifti_image_read    ( const char *hname , int read_data ) ;
-int          nifti_image_load    ( nifti_image *nim ) ;
-void         nifti_image_unload  ( nifti_image *nim ) ;
-void         nifti_image_free    ( nifti_image *nim ) ;
-
-int          nifti_read_collapsed_image( nifti_image * nim, const int dims [8],
-										void ** data );
-
-long         nifti_read_subregion_image( nifti_image * nim,
-										int *start_index, int *region_size,
-										void ** data );
-
-void         nifti_image_write   ( nifti_image * nim ) ;
-void         nifti_image_write_bricks(nifti_image * nim,
-                                      const nifti_brick_list * NBL);
-void         nifti_image_infodump( const nifti_image * nim ) ;
-
-void         nifti_disp_lib_hist( void ) ;     /* to display library history */
-void         nifti_disp_lib_version( void ) ;  /* to display library version */
-int          nifti_disp_matrix_orient( const char * mesg, Matrix4d mat );
-int          nifti_disp_type_list( int which );
-
-
-char *       nifti_image_to_ascii  ( const nifti_image * nim ) ;
-nifti_image *nifti_image_from_ascii( const char * str, int * bytes_read ) ;
-
-size_t       nifti_get_volsize(const nifti_image *nim) ;
-
-/* basic file operations */
-int    nifti_set_filenames(nifti_image * nim, const char * prefix, int check,
-                           int set_byte_order);
-char * nifti_makehdrname  (const char * prefix, int nifti_type, int check,
-                           int comp);
-char * nifti_makeimgname  (const char * prefix, int nifti_type, int check,
-                           int comp);
-int    is_nifti_file      (const char *hname);
-char * nifti_find_file_extension(const char * name);
-int    nifti_is_complete_filename(const char* fname);
-int    nifti_validfilename(const char* fname);
+void nifti_disp_lib_hist( void ) ;     /* to display library history */
+void nifti_disp_lib_version( void ) ;  /* to display library version */
+int nifti_disp_matrix_orient( const char * mesg, Matrix4d mat );
+int nifti_disp_type_list( int which );
 
 int    disp_nifti_1_header(const char * info, const nifti_1_header * hp ) ;
 void   nifti_set_debug_level( int level ) ;
 void   nifti_set_skip_blank_ext( int skip ) ;
 void   nifti_set_allow_upper_fext( int allow ) ;
-
-int    valid_nifti_brick_list(nifti_image * nim , int nbricks,
-                              const int * blist, int disp_error);
-
-/* znzFile operations */
-znzFile nifti_image_open(const char * hname, char * opts, nifti_image ** nim);
-znzFile nifti_image_write_hdr_img(nifti_image *nim, int write_data,
-                                  const char* opts);
-znzFile nifti_image_write_hdr_img2( nifti_image *nim , int write_opts ,
-								   const char* opts, znzFile imgfile, const nifti_brick_list * NBL);
-size_t  nifti_read_buffer(znzFile fp, void* datatptr, size_t ntot,
-						  nifti_image *nim);
-int     nifti_write_all_data(znzFile fp, nifti_image * nim,
-                             const nifti_brick_list * NBL);
-size_t  nifti_write_buffer(znzFile fp, const void * buffer, size_t numbytes);
 void nifti_datatype_sizes( int datatype , int *nbyper, int *swapsize ) ;
-
 int nifti_short_order(void) ;              /* CPU byte order */
 
 
@@ -353,35 +199,19 @@ char * nifti_makebasename(const char* fname);
 
 
 /* other routines */
-struct nifti_1_header   nifti_convert_nim2nhdr(const nifti_image* nim);
-nifti_1_header * nifti_make_new_header(const int arg_dims[], int arg_dtype);
-nifti_1_header * nifti_read_header(const char *hname, int *swapped, int check);
-nifti_image    * nifti_copy_nim_info(const nifti_image * src);
-nifti_image    * nifti_make_new_nim(const int dims[], int datatype,
-									int data_fill);
-nifti_image    * nifti_simple_init_nim(void);
-nifti_image    * nifti_convert_nhdr2nim(struct nifti_1_header nhdr,
-                                        const char * fname);
-
 int    nifti_hdr_looks_good        (const nifti_1_header * hdr);
 int    nifti_is_valid_datatype     (int dtype);
 int    nifti_is_valid_ecode        (int ecode);
-int    nifti_nim_is_valid          (nifti_image * nim, int complain);
-int    nifti_nim_has_valid_dims    (nifti_image * nim, int complain);
 int    is_valid_nifti_type         (int nifti_type);
 int    nifti_test_datatype_sizes   (int verb);
-int    nifti_type_and_names_match  (nifti_image * nim, int show_warn);
-int    nifti_update_dims_from_array(nifti_image * nim);
-void   nifti_set_iname_offset      (nifti_image *nim);
-int    nifti_set_type_from_names   (nifti_image * nim);
-int    nifti_add_extension(nifti_image * nim, const char * data, int len,
+/*int    nifti_add_extension(nifti_image * nim, const char * data, int len,
                            int ecode );
 int    nifti_compiled_with_zlib    (void);
 int    nifti_copy_extensions (nifti_image *nim_dest,const nifti_image *nim_src);
 int    nifti_free_extensions (nifti_image *nim);
 int  * nifti_get_intlist     (int nvals , const char *str);
 char * nifti_strdup          (const char *str);
-int    valid_nifti_extensions(const nifti_image *nim);
+int    valid_nifti_extensions(const nifti_image *nim);*/
 
 
 /*-------------------- Some C convenience macros ----------------------------*/
@@ -447,40 +277,11 @@ http://brainvis.wustl.edu/wiki
 #ifdef _NIFTI1_IO_C_
 
 typedef struct {
-    int debug;               /*!< debug level for status reports  */
-    int skip_blank_ext;      /*!< skip extender if no extensions  */
-    int allow_upper_fext;    /*!< allow uppercase file extensions */
-} nifti_global_options;
-
-typedef struct {
     int    type;           /* should match the NIFTI_TYPE_ #define */
     int    nbyper;         /* bytes per value, matches nifti_image */
     int    swapsize;       /* bytes per swap piece, matches nifti_image */
     const char * name;           /* text string to match #define */
 } nifti_type_ele;
-
-#undef  LNI_FERR /* local nifti file error, to be compact and repetative */
-#define LNI_FERR(func,msg,file)                                      \
-fprintf(stderr,"** ERROR (%s): %s '%s'\n",func,msg,file)
-
-#undef  swap_2
-#undef  swap_4
-#define swap_2(s) nifti_swap_2bytes(1,&(s)) /* s: 2-byte short; swap in place */
-#define swap_4(v) nifti_swap_4bytes(1,&(v)) /* v: 4-byte value; swap in place */
-
-/***** isfinite() is a C99 macro, which is
- present in many C implementations already *****/
-
-#undef IS_GOOD_FLOAT
-#undef FIXED_FLOAT
-
-#ifdef isfinite       /* use isfinite() to check floats/doubles for goodness */
-#  define IS_GOOD_FLOAT(x) isfinite(x)       /* check if x is a "good" float */
-#  define FIXED_FLOAT(x)   (isfinite(x) ? (x) : 0)           /* fixed if bad */
-#else
-#  define IS_GOOD_FLOAT(x) 1                               /* don't check it */
-#  define FIXED_FLOAT(x)   (x)                               /* don't fix it */
-#endif
 
 #undef  ASSIF                                 /* assign v to *p, if possible */
 #define ASSIF(p,v) if( (p)!=NULL ) *(p) = (v)
@@ -525,6 +326,7 @@ class NiftiImage
 		
 		void setFilenames(const std::string &filename);
 		static int needs_swap(short dim0, int hdrsize);
+		static float fixFloat(const float f);
 		void seek(long offset, int whence);
 		void readHeader(std::string path);
 		void writeHeader(std::string path);
