@@ -1345,6 +1345,7 @@ void NiftiImage::setFilenames(const std::string &fname)
 {	
 	std::string ext = fname.substr(fname.find_last_of(".") + 1);
 	_basename = fname.substr(0, fname.find_last_of("."));
+	_gz = false;
 	if (ext == "gz")
 	{
 		_gz = true;
@@ -1384,12 +1385,13 @@ const std::string &NiftiImage::basename() { return _basename; }
  *----------------------------------------------------------------------*/
 void NiftiImage::seek(long offset, int whence)
 {
-	long newpos;
+	long newpos, currpos;
+	currpos = znztell(_imgfile);
 	if (_mode == NIFTI_READ) {
 		if (whence == SEEK_SET)
 			newpos = offset;
 		else if (whence == SEEK_CUR)
-			newpos = _currpos + offset;
+			newpos = currpos + offset;
 		else
 		{
 			std::cerr << "NiftiImage: Reading with SEEK_END is not implemented." << std::endl;
@@ -1405,16 +1407,19 @@ void NiftiImage::seek(long offset, int whence)
 		if (whence == SEEK_SET)
 			newpos = offset;
 		else if (whence == SEEK_CUR)
-			newpos = _currpos + offset;
+			newpos = currpos + offset;
 		else
-			newpos = _filesize + offset;
+		{
+			std::cerr << "NiftiImage: Writing with SEEK_END is not implemented." << std::endl;
+			abort();
+		}
 		
 		if (newpos < _voxoffset)
 		{
 			std::cerr << "NiftiImage: Attempted to seek into the header while writing to " << _imgname << "." << std::endl;
 			abort();
 		}
-		else if (_gz && newpos < _currpos)
+		else if (_gz && newpos < currpos)
 		{
 			std::cerr << "NiftiImage: Cannot seek backwards while writing a file with libz." << std::endl;
 			abort();
@@ -1424,11 +1429,11 @@ void NiftiImage::seek(long offset, int whence)
 		abort();
 	}
 	znzseek(_imgfile, offset, whence);
-	_currpos = znztell(_imgfile);
-	if (_currpos != newpos)
+	currpos = znztell(_imgfile);
+	if (currpos != newpos)
 	{
 		std::cerr << "NiftiImage: Seek moved to an unexpected location ("
-				  << _currpos << ", not " << newpos << ")." << std::endl;
+				  << currpos << ", not " << newpos << ")." << std::endl;
 	}
 }
 
@@ -1552,9 +1557,7 @@ void NiftiImage::readHeader(std::string path)
 		double x = fixFloat(nhdr.qoffset_x);
 		double y = fixFloat(nhdr.qoffset_y);
 		double z = fixFloat(nhdr.qoffset_z);
-		
 		double qfac = (nhdr.pixdim[0] < 0.0) ? -1.0 : 1.0 ;  /* left-handedness? */
-		
 		double a = sqrt(1 - (b*b + c*c + d*d));
 		Quaterniond Q(a, b, c, d);
 		Affine3d T; T = Translation3d(x, y, z);
@@ -1689,9 +1692,10 @@ void NiftiImage::writeHeader(std::string path)
 		nhdr.qform_code = qform_code ;
 		Quaterniond Q(_qform.rotation());
 		Translation3d T(_qform.translation());
-		nhdr.quatern_b  = Q.x();
-		nhdr.quatern_c  = Q.y();
-		nhdr.quatern_d  = Q.z();
+		// Need minus signs due to an apparent bug in Eigen
+		nhdr.quatern_b  = -Q.x();
+		nhdr.quatern_c  = -Q.y();
+		nhdr.quatern_d  = -Q.z();
 		nhdr.qoffset_x  = T.x();
 		nhdr.qoffset_y  = T.y();
 		nhdr.qoffset_z  = T.z();
@@ -1721,14 +1725,25 @@ void NiftiImage::writeHeader(std::string path)
 	
 	/* write the header and extensions */
 	size_t bytesWritten = znzwrite(&nhdr, 1, sizeof(nhdr), fp); /* write header */
+	/* partial file exists, and errors have been printed, so ignore return */
+	//if( nim->nifti_type != NIFTI_FTYPE_ANALYZE )
+	//	(void)nifti_write_extensions(fp,nim);
 	if(bytesWritten < sizeof(nhdr)) {
 		std::cerr << "NiftiImage: Could not write header to file " << _hdrname << "." << std::endl;
 		abort();
 	}
-	znzclose(fp);	
-	/* partial file exists, and errors have been printed, so ignore return */
-	//if( nim->nifti_type != NIFTI_FTYPE_ANALYZE )
-	//	(void)nifti_write_extensions(fp,nim);
+	if (_hdrname == _imgname)
+		_imgfile = fp;
+	else
+	{
+		znzclose(fp);
+		_imgfile = znzopen(_imgname.c_str(), "wb", _gz);
+		if (!_imgfile)
+		{
+			std::cerr << "Could not open image file " << _imgfile << " for writing." << std::endl;
+			abort();
+		}
+	}
 }
 
 void *NiftiImage::readBuffer(size_t start, size_t length)
@@ -1773,7 +1788,6 @@ void NiftiImage::writeBuffer(void *data, size_t start, size_t length)
 		std::cerr << "NiftiImage: Cannot write to a file opened for writing." << std::endl;
 		return;
 	}
-	
 	seek(_voxoffset + start, SEEK_SET);
 	size_t bytesWritten = znzwrite(data, 1, length, _imgfile);
 	
@@ -1782,7 +1796,6 @@ void NiftiImage::writeBuffer(void *data, size_t start, size_t length)
 		std::cerr << "NiftiImage: Write buffer was short by " << (length - bytesWritten)
 				  << " bytes." << std::endl;
 	}
-	_filesize += bytesWritten;
 }
 
 void *NiftiImage::readRawVolume(const int vol)
@@ -1813,19 +1826,8 @@ void NiftiImage::open(std::string filename, char mode)
 		seek(_voxoffset, SEEK_SET);
 	} else if (mode == NIFTI_WRITE) {
 		_mode = NIFTI_WRITE;
-		writeHeader(_hdrname);
-		if (_hdrname != _imgname)
-			_imgfile = znzopen(_imgname.c_str(), "wb", _gz);
-		else	// If it's a .nii file, we need to append to the header
-			_imgfile = znzopen(_imgname.c_str(), "ab", _gz);
-		_currpos = 0;
-		if (!_imgfile)
-		{
-			std::cerr << "Could not open image file " << _imgfile << " for writing." << std::endl;
-			abort();
-		}
+		writeHeader(_hdrname); // writeHeader ensures _imgfile is opened to the correct file
 		seek(_voxoffset, SEEK_SET);
-		_filesize = _voxoffset;
 	} else {
 		std::cerr << "Invalid NiftImage mode '" << mode << "'." << std::endl;
 		abort();
@@ -1834,7 +1836,7 @@ void NiftiImage::open(std::string filename, char mode)
 
 void NiftiImage::close()
 {
-	znzflush(_imgfile); // Have observed missing data when not flushing zipped files before close
+	//znzflush(_imgfile); // Have observed missing data when not flushing zipped files before close
 	znzclose(_imgfile);
 	_mode = NIFTI_CLOSED;
 }

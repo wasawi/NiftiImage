@@ -302,7 +302,6 @@ class NiftiImage
 		Affine3d _qform, _sform, _inverse;
 		
 		std::string _basename, _imgname, _hdrname;     /* Paths to header and image files*/
-		long _currpos, _filesize;           // Location within file, total written size in bytes
 		int _voxoffset, _byteorder; /* Offset and byte swap info */
 		int _datatype;                      /* Datatype on disk */
 		int _num_ext;
