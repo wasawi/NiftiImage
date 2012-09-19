@@ -1872,6 +1872,7 @@ void NiftiImage::setnt(const int nt)
 			_dim[4] = 1;
 			_dim[0] = 3;
 		}
+	}
 	else
 	{
 		std::cerr << "NiftiImage: Cannot change the dimensions of an image once opened." << std::endl;
