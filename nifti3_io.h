@@ -446,6 +446,7 @@ class NiftiImage
 		int nt() const;
 		int voxelsPerVolume() const;
 		int nvox() const;
+		void setnt(const int nt);
 		void setDims(int nx, int ny, int nz, int nt);
 		
 		int datatype() const;

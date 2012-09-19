@@ -1363,7 +1363,7 @@ void NiftiImage::setFilenames(const std::string &fname)
 	}
 	else
 	{
-		std::cerr << "Extension ." << ext << " is not a valid NIfTI extension." << std::endl;
+		std::cerr << "Extension " << ext << " is not a valid NIfTI extension." << std::endl;
 		abort();
 	}
 	if (_gz)
@@ -1814,6 +1814,13 @@ void *NiftiImage::readRawAllVolumes()
 void NiftiImage::open(std::string filename, char mode)
 {
 	setFilenames(filename);
+	if (_mode != NIFTI_CLOSED)
+	{
+		std::cerr << "NiftiImage: Attempted to open file " << filename
+				  << " using NiftiImage that is already open with file "
+				  << _imgname << "." << std::endl;
+		abort();
+	}
 	if (mode == NIFTI_READ) {
 		_mode = NIFTI_READ;
 		readHeader(_hdrname);
@@ -1851,13 +1858,10 @@ int NiftiImage::nx() const { return _dim[1]; }
 int NiftiImage::ny() const { return _dim[2]; }
 int NiftiImage::nz() const { return _dim[3]; }
 int NiftiImage::nt() const { return _dim[4]; }
-void NiftiImage::setDims(const int nx, const int ny, const int nz, const int nt)
+void NiftiImage::setnt(const int nt)
 {
 	if (_mode == NIFTI_CLOSED)
 	{
-		_dim[1] = nx;
-		_dim[2] = ny;
-		_dim[3] = nz;
 		if (nt > 1)
 		{
 			_dim[4] = nt;
@@ -1868,12 +1872,20 @@ void NiftiImage::setDims(const int nx, const int ny, const int nz, const int nt)
 			_dim[4] = 1;
 			_dim[0] = 3;
 		}
-	}
 	else
 	{
 		std::cerr << "NiftiImage: Cannot change the dimensions of an image once opened." << std::endl;
 		abort();
-	}
+	}	
+}
+
+void NiftiImage::setDims(const int nx, const int ny, const int nz, const int nt)
+{
+	//setnt will check if the file is closed
+	setnt(nt);
+	_dim[1] = nx;
+	_dim[2] = ny;
+	_dim[3] = nz;
 }
 int NiftiImage::voxelsPerVolume() const { return _dim[1]*_dim[2]*_dim[3]; };
 int NiftiImage::nvox() const { return _dim[1]*_dim[2]*_dim[3]*_dim[4]; };
