@@ -1,6 +1,4 @@
-#define _NIFTI1_IO_C_
-
-#include "nifti3_io.h"   /* typedefs, prototypes, macros, etc. */
+#include "NiftiImage.h"   /* typedefs, prototypes, macros, etc. */
 
 static const std::string lib_hist = "\
 ----------------------------------------------------------------------\n\
@@ -1692,10 +1690,22 @@ void NiftiImage::writeHeader(std::string path)
 		nhdr.qform_code = qform_code ;
 		Quaterniond Q(_qform.rotation());
 		Translation3d T(_qform.translation());
-		// Need minus signs due to an apparent bug in Eigen
-		nhdr.quatern_b  = -Q.x();
-		nhdr.quatern_c  = -Q.y();
-		nhdr.quatern_d  = -Q.z();
+		Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
+
+		// NIfTI REQUIRES a (or w) >= 0. Because Q and -Q represent the same
+		// rotation, if w < 0 simply store -Q
+		if (Q.w() < 0)
+		{
+			nhdr.quatern_b  = -Q.x();
+			nhdr.quatern_c  = -Q.y();
+			nhdr.quatern_d  = -Q.z();
+		}
+		else
+		{
+			nhdr.quatern_b = Q.x();
+			nhdr.quatern_c = Q.y();
+			nhdr.quatern_d = Q.z();
+		}
 		nhdr.qoffset_x  = T.x();
 		nhdr.qoffset_y  = T.y();
 		nhdr.qoffset_z  = T.z();

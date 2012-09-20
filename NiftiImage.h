@@ -1,19 +1,17 @@
-/** \file nifti1_io.h
- \brief Data structures for using nifti1_io API.
- - Written by Bob Cox, SSCC NIMH
- - Revisions by Rick Reynolds, SSCC NIMH
+/** \file NiftiImage.h
+ \brief Declaration for NiftiImage class
+ - Written by Tobias Wood, IoP KCL
+ - Based on nifti1_io.h (Thanks to Robert Cox et al)
  */
 #ifndef _NIFTI_IO_HEADER_3
 #define _NIFTI_IO_HEADER_3
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <ctype.h>
+#include <znzlib.h>
 
-#include <iostream>
 #include <string>
+#include <iostream>
 #include <algorithm>
 #include <complex>
 #include <map>
@@ -21,43 +19,9 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
-using namespace Eigen;
-
-#include <znzlib.h>
-
 #include "nifti1.h"                  /*** NIFTI-1 header specification ***/
 
-
-
-/*****===================================================================*****/
-/*****         File nifti1_io.h == Declarations for nifti1_io.c          *****/
-/*****...................................................................*****/
-/*****            This code is released to the public domain.            *****/
-/*****...................................................................*****/
-/*****  Author: Robert W Cox, SSCC/DIRP/NIMH/NIH/DHHS/USA/EARTH          *****/
-/*****  Date:   August 2003                                              *****/
-/*****...................................................................*****/
-/*****  Neither the National Institutes of Health (NIH), nor any of its  *****/
-/*****  employees imply any warranty of usefulness of this software for  *****/
-/*****  any purpose, and do not assume any liability for damages,        *****/
-/*****  incidental or otherwise, caused by any use of this document.     *****/
-/*****===================================================================*****/
-
-/*
- Modified by: Mark Jenkinson (FMRIB Centre, University of Oxford, UK)
- Date: July/August 2004
- 
- Mainly adding low-level IO and changing things to allow gzipped files
- to be read and written
- Full backwards compatability should have been maintained
- 
- Modified by: Rick Reynolds (SSCC/DIRP/NIMH, National Institutes of Health)
- Date: December 2004
- 
- Modified and added many routines for I/O.
- */
-
-/*...........................................................................*/
+using namespace Eigen;
 
 /*! \enum analyze_75_orient_code
  *  \brief Old-style analyze75 orientation
@@ -252,21 +216,6 @@ http://brainvis.wustl.edu/wiki
 #define NIFTI_FTYPE_ASCII     3
 #define NIFTI_MAX_FTYPE       3    /* this should match the maximum code */
 
-/*------------------------------------------------------------------------*/
-/*-- the rest of these apply only to nifti1_io.c, check for _NIFTI1_IO_C_ */
-/*                                                    Feb 9, 2005 [rickr] */
-#ifdef _NIFTI1_IO_C_
-
-typedef struct {
-    int    type;           /* should match the NIFTI_TYPE_ #define */
-    int    nbyper;         /* bytes per value, matches nifti_image */
-    int    swapsize;       /* bytes per swap piece, matches nifti_image */
-    const char * name;           /* text string to match #define */
-} nifti_type_ele;
-
-#undef  ASSIF                                 /* assign v to *p, if possible */
-#define ASSIF(p,v) if( (p)!=NULL ) *(p) = (v)
-
 #undef  MSB_FIRST
 #undef  LSB_FIRST
 #undef  REVERSE_ORDER
@@ -275,8 +224,6 @@ typedef struct {
 #define REVERSE_ORDER(x) (3-(x))    /* convert MSB_FIRST <--> LSB_FIRST */
 
 #define LNI_MAX_NIA_EXT_LEN 100000  /* consider a longer extension invalid */
-#endif  /* _NIFTI1_IO_C_ section */
-/*------------------------------------------------------------------------*/
 
 /*! NIfTI header class */
 
