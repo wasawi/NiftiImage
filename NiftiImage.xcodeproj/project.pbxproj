@@ -7,42 +7,41 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F6C4AF18160B156C00254B6C /* NiftiImage.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F6C4AF16160B156C00254B6C /* NiftiImage.cpp */; };
-		F6C4AF19160B156C00254B6C /* NiftiImage.h in Headers */ = {isa = PBXBuildFile; fileRef = F6C4AF17160B156C00254B6C /* NiftiImage.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F6E9DAB216022D06005D73E3 /* nifti1.h in Headers */ = {isa = PBXBuildFile; fileRef = F6E9DAAC16022D06005D73E3 /* nifti1.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F6E9DAB316022D06005D73E3 /* znzlib.c in Sources */ = {isa = PBXBuildFile; fileRef = F6E9DAAD16022D06005D73E3 /* znzlib.c */; };
-		F6E9DAB416022D06005D73E3 /* znzlib.h in Headers */ = {isa = PBXBuildFile; fileRef = F6E9DAAE16022D06005D73E3 /* znzlib.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F6F179E916033A8E0055CCBD /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = F6F179E816033A8E0055CCBD /* libz.dylib */; };
+		F6B19DF6160B679C009F84C5 /* NiftiImage.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F6C4AF16160B156C00254B6C /* NiftiImage.cpp */; };
+		F6B19DF8160B67A5009F84C5 /* NiftiImage.h in Headers */ = {isa = PBXBuildFile; fileRef = F6C4AF17160B156C00254B6C /* NiftiImage.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F6B19DFF160B7186009F84C5 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = F6F179E816033A8E0055CCBD /* libz.dylib */; };
+		F6B19E00160B720B009F84C5 /* nifti1.h in Headers */ = {isa = PBXBuildFile; fileRef = F6E9DAAC16022D06005D73E3 /* nifti1.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		F6B19D27160B1851009F84C5 /* libNiftiImage.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libNiftiImage.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6B19DE8160B6748009F84C5 /* NiftiImage.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = NiftiImage.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6B19DEC160B6748009F84C5 /* NiftiImageProj.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = NiftiImageProj.xcconfig; sourceTree = "<group>"; };
+		F6B19DED160B6748009F84C5 /* NiftiImageTarget.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = NiftiImageTarget.xcconfig; sourceTree = "<group>"; };
 		F6C4AF16160B156C00254B6C /* NiftiImage.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NiftiImage.cpp; sourceTree = "<group>"; };
 		F6C4AF17160B156C00254B6C /* NiftiImage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NiftiImage.h; sourceTree = "<group>"; };
 		F6E9DAAC16022D06005D73E3 /* nifti1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nifti1.h; sourceTree = "<group>"; };
-		F6E9DAAD16022D06005D73E3 /* znzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = znzlib.c; sourceTree = "<group>"; };
-		F6E9DAAE16022D06005D73E3 /* znzlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = znzlib.h; sourceTree = "<group>"; };
 		F6F179E816033A8E0055CCBD /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		F6E9DA9F16022CD1005D73E3 /* Frameworks */ = {
+		F6B19DE5160B6748009F84C5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F6F179E916033A8E0055CCBD /* libz.dylib in Frameworks */,
+				F6B19DFF160B7186009F84C5 /* libz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		F6B19D55160B1856009F84C5 /* Products */ = {
+		F6B19DE9160B6748009F84C5 /* NiftiImage */ = {
 			isa = PBXGroup;
 			children = (
-				F6B19D27160B1851009F84C5 /* libNiftiImage.a */,
+				F6B19DEC160B6748009F84C5 /* NiftiImageProj.xcconfig */,
+				F6B19DED160B6748009F84C5 /* NiftiImageTarget.xcconfig */,
 			);
-			name = Products;
+			path = NiftiImage;
 			sourceTree = "<group>";
 		};
 		F6E9DA9716022CD1005D73E3 = {
@@ -50,7 +49,8 @@
 			children = (
 				F6F179E816033A8E0055CCBD /* libz.dylib */,
 				F6E9DAB516022D0B005D73E3 /* Source */,
-				F6B19D55160B1856009F84C5 /* Products */,
+				F6B19DE8160B6748009F84C5 /* NiftiImage.dylib */,
+				F6B19DE9160B6748009F84C5 /* NiftiImage */,
 			);
 			sourceTree = "<group>";
 		};
@@ -60,8 +60,6 @@
 				F6C4AF16160B156C00254B6C /* NiftiImage.cpp */,
 				F6C4AF17160B156C00254B6C /* NiftiImage.h */,
 				F6E9DAAC16022D06005D73E3 /* nifti1.h */,
-				F6E9DAAD16022D06005D73E3 /* znzlib.c */,
-				F6E9DAAE16022D06005D73E3 /* znzlib.h */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -69,35 +67,34 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		F6E9DAA016022CD1005D73E3 /* Headers */ = {
+		F6B19DE6160B6748009F84C5 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F6E9DAB416022D06005D73E3 /* znzlib.h in Headers */,
-				F6E9DAB216022D06005D73E3 /* nifti1.h in Headers */,
-				F6C4AF19160B156C00254B6C /* NiftiImage.h in Headers */,
+				F6B19DF8160B67A5009F84C5 /* NiftiImage.h in Headers */,
+				F6B19E00160B720B009F84C5 /* nifti1.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		F6E9DAA116022CD1005D73E3 /* NiftiImage */ = {
+		F6B19DE7160B6748009F84C5 /* NiftiImage */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F6E9DAA616022CD1005D73E3 /* Build configuration list for PBXNativeTarget "NiftiImage" */;
+			buildConfigurationList = F6B19DF4160B6748009F84C5 /* Build configuration list for PBXNativeTarget "NiftiImage" */;
 			buildPhases = (
-				F6E9DA9E16022CD1005D73E3 /* Sources */,
-				F6E9DA9F16022CD1005D73E3 /* Frameworks */,
-				F6E9DAA016022CD1005D73E3 /* Headers */,
+				F6B19DE4160B6748009F84C5 /* Sources */,
+				F6B19DE5160B6748009F84C5 /* Frameworks */,
+				F6B19DE6160B6748009F84C5 /* Headers */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = NiftiImage;
-			productName = niftilib3;
-			productReference = F6B19D27160B1851009F84C5 /* libNiftiImage.a */;
-			productType = "com.apple.product-type.library.static";
+			productName = NiftiImage;
+			productReference = F6B19DE8160B6748009F84C5 /* NiftiImage.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
 		};
 /* End PBXNativeTarget section */
 
@@ -108,7 +105,7 @@
 				LastUpgradeCheck = 0440;
 				ORGANIZATIONNAME = "Tobias Wood";
 			};
-			buildConfigurationList = F6E9DA9C16022CD1005D73E3 /* Build configuration list for PBXProject "niftilib3" */;
+			buildConfigurationList = F6E9DA9C16022CD1005D73E3 /* Build configuration list for PBXProject "NiftiImage" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
@@ -120,33 +117,51 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F6E9DAA116022CD1005D73E3 /* NiftiImage */,
+				F6B19DE7160B6748009F84C5 /* NiftiImage */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
-		F6E9DA9E16022CD1005D73E3 /* Sources */ = {
+		F6B19DE4160B6748009F84C5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F6E9DAB316022D06005D73E3 /* znzlib.c in Sources */,
-				F6C4AF18160B156C00254B6C /* NiftiImage.cpp in Sources */,
+				F6B19DF6160B679C009F84C5 /* NiftiImage.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		F6B19DF2160B6748009F84C5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRIVATE_HEADERS_FOLDER_PATH = include;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = include;
+			};
+			name = Debug;
+		};
+		F6B19DF3160B6748009F84C5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRIVATE_HEADERS_FOLDER_PATH = include;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = include;
+			};
+			name = Release;
+		};
 		F6E9DAA416022CD1005D73E3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -171,12 +186,14 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
@@ -187,51 +204,22 @@
 			};
 			name = Release;
 		};
-		F6E9DAA716022CD1005D73E3 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = c99;
-				OTHER_CFLAGS = "-DHAVE_ZLIB";
-				PRIVATE_HEADERS_FOLDER_PATH = include/;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PUBLIC_HEADERS_FOLDER_PATH = include/;
-			};
-			name = Debug;
-		};
-		F6E9DAA816022CD1005D73E3 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = c99;
-				OTHER_CFLAGS = "-DHAVE_ZLIB";
-				PRIVATE_HEADERS_FOLDER_PATH = include/;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PUBLIC_HEADERS_FOLDER_PATH = include/;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		F6E9DA9C16022CD1005D73E3 /* Build configuration list for PBXProject "niftilib3" */ = {
+		F6B19DF4160B6748009F84C5 /* Build configuration list for PBXNativeTarget "NiftiImage" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6B19DF2160B6748009F84C5 /* Debug */,
+				F6B19DF3160B6748009F84C5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+		F6E9DA9C16022CD1005D73E3 /* Build configuration list for PBXProject "NiftiImage" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F6E9DAA416022CD1005D73E3 /* Debug */,
 				F6E9DAA516022CD1005D73E3 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		F6E9DAA616022CD1005D73E3 /* Build configuration list for PBXNativeTarget "NiftiImage" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				F6E9DAA716022CD1005D73E3 /* Debug */,
-				F6E9DAA816022CD1005D73E3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

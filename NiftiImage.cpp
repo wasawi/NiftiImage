@@ -1372,19 +1372,79 @@ void NiftiImage::setFilenames(const std::string &fname)
 }
 
 const std::string &NiftiImage::basename() { return _basename; }
-/*----------------------------------------------------------------------
- * check whether byte swapping is needed
- *
- * dim[0] should be in [0,7], and sizeof_hdr should be accurate
- *
- * \returns  > 0 : needs swap
- *             0 : does not need swap
- *           < 0 : error condition
- *----------------------------------------------------------------------*/
-void NiftiImage::seek(long offset, int whence)
+
+/* we already assume ints are 4 bytes */
+#undef ZNZ_MAX_BLOCK_SIZE
+#define ZNZ_MAX_BLOCK_SIZE (1<<30)
+
+size_t NiftiImage::read(void *buff, size_t size, size_t nmemb)
+{
+	if (_gz)
+	{
+		unsigned long remain = size*nmemb;
+		char *cbuf = (char *)buff;
+		unsigned long n2read;
+		int nread;
+		/* gzread/write take unsigned int length, so maybe read in int pieces
+		 (noted by M Hanke, example given by M Adler)   6 July 2010 [rickr] */
+		while(remain > 0) {
+			n2read = (remain < ZNZ_MAX_BLOCK_SIZE) ? remain : ZNZ_MAX_BLOCK_SIZE;
+			nread = gzread(_gzFile, (void *)cbuf, (unsigned int)n2read);
+			if( nread < 0 ) return nread; /* returns -1 on error */
+			
+			remain -= nread;
+			cbuf += nread;
+			
+			/* require reading n2read bytes, so we don't get stuck */
+			if( nread < (int)n2read ) break;  /* return will be short */
+		}
+		
+		/* warn of a short read that will seem complete */
+		if( remain > 0 && remain < size )
+			std::cerr << "NiftiImage: Zipped read short by " << remain << " bytes." << std::endl;
+		return nmemb - remain/size;   /* return number of members processed */
+	}
+	else
+		return fread(buff, size, nmemb, _file);
+}
+
+size_t NiftiImage::write(const void *buff, size_t size, size_t nmemb)
+{
+	if (_gz) {
+		unsigned long remain = size*nmemb;
+		char     * cbuf = (char *)buff;
+		unsigned long n2write;
+		int        nwritten;
+		while( remain > 0 ) {
+			n2write = (remain < ZNZ_MAX_BLOCK_SIZE) ? remain : ZNZ_MAX_BLOCK_SIZE;
+			nwritten = gzwrite(_gzFile, (void *)cbuf, (unsigned int)n2write);
+			
+			/* gzread returns 0 on error, but in case that ever changes... */
+			if( nwritten < 0 ) return nwritten;
+			
+			remain -= nwritten;
+			cbuf += nwritten;
+			
+			/* require writing n2write bytes, so we don't get stuck */
+			if( nwritten < (int)n2write ) break;
+		}
+		
+		/* warn of a short write that will seem complete */
+		if( remain > 0 && remain < size )
+			std::cerr << "NiftiImage: Zipped write short by " << remain << " bytes." << std::endl;
+		
+		return nmemb - remain/size;   /* return number of members processed */
+	}
+	return fwrite(buff, size, nmemb, _file);
+}
+
+long NiftiImage::seek(long offset, int whence)
 {
 	long newpos, currpos;
-	currpos = znztell(_imgfile);
+	if (_gz)
+		currpos = gztell(_gzFile);
+	else
+		currpos = ftell(_file);
 	if (_mode == NIFTI_READ) {
 		if (whence == SEEK_SET)
 			newpos = offset;
@@ -1426,15 +1486,34 @@ void NiftiImage::seek(long offset, int whence)
 		std::cerr << "NiftiImage: Cannot seek in a closed file." << std::endl;
 		abort();
 	}
-	znzseek(_imgfile, offset, whence);
-	currpos = znztell(_imgfile);
+	long error;
+	if (_gz)
+	{
+		error = gzseek(_gzFile, offset, whence);
+		currpos = gztell(_gzFile);
+	}
+	else
+	{
+		error = fseek(_file, offset, whence);
+		currpos = ftell(_file);
+	}
 	if (currpos != newpos)
 	{
 		std::cerr << "NiftiImage: Seek moved to an unexpected location ("
 				  << currpos << ", not " << newpos << ")." << std::endl;
 	}
+	return error;
 }
 
+/*----------------------------------------------------------------------
+ * check whether byte swapping is needed
+ *
+ * dim[0] should be in [0,7], and sizeof_hdr should be accurate
+ *
+ * \returns  > 0 : needs swap
+ *             0 : does not need swap
+ *           < 0 : error condition
+ *----------------------------------------------------------------------*/
 int NiftiImage::needs_swap( short dim0, int hdrsize )
 {
 	short d0    = dim0;     /* so we won't have to swap them on the stack */
@@ -1467,26 +1546,34 @@ inline float NiftiImage::fixFloat(const float f)
 void NiftiImage::readHeader(std::string path)
 {
 	struct nifti_1_header  nhdr;
-	znzFile                fp;
 	size_t                 bytes_read;
-	
-	fp = znzopen(path.c_str(), "rb", _gz);
-	if (znz_isnull(fp))
+
+	if (_gz)
 	{
-		std::cerr << "Failed to open header from file: " << _hdrname << std::endl;
+		_gzFile = gzopen(path.c_str(), "rb");
+		_file = NULL;
+	}
+	else
+	{
+		_file = fopen(path.c_str(), "rb");
+		_gzFile = NULL;
+	}
+	if (!(_gzFile || _file))
+	{
+		std::cerr << "Failed to open header from file: " << path << std::endl;
 		abort();
 	}
-	//if( nifti_is_gzfile(hfile) ) filesize = -1;  /* unknown */
-	//else                         filesize = nifti_get_filesize(hfile);
-		
-	bytes_read = znzread(&nhdr, 1, sizeof(nhdr), fp);  /* read the thing */
+	
+	if (_gz)
+		bytes_read = gzread(_gzFile, &nhdr, sizeof(nhdr));  /* read the thing */
+	else
+		bytes_read = fread(&nhdr, sizeof(nhdr), 1, _file);
 	
 	/* keep file open so we can check for exts. after nifti_convert_nhdr2nim() */
 	if (bytes_read < sizeof(nhdr))
 	{
 		std::cerr << "Only read " << bytes_read << " bytes from " << _hdrname <<
 		             ", should have been " << sizeof(nhdr) << "." << std::endl;
-		znzclose(fp);
 		abort();
 	}
 	
@@ -1631,7 +1718,19 @@ void NiftiImage::readHeader(std::string path)
 	
 	//(void)nifti_read_extensions(nim, fp, remaining);
 	
-	znzclose(fp);
+	if (_hdrname != _imgname)
+	{	// Need to close the header and open the image
+		if (_gz)
+		{
+			gzclose(_gzFile);
+			_gzFile = gzopen(_imgname.c_str(), "rb");
+		}
+		else
+		{
+			fclose(_file);
+			_file = fopen(_imgname.c_str(), "rb");
+		}
+	}
 	// Now we have a valid transform, store the inverse for future
 }
 
@@ -1727,14 +1826,28 @@ void NiftiImage::writeHeader(std::string path)
 	nhdr.slice_end      = slice_end;
 	nhdr.slice_duration = slice_duration;
 	
-	znzFile fp = znzopen(_hdrname.c_str(), "wb", _gz);
-	if(znz_isnull(fp)) {
+	if (_gz)
+	{
+		_gzFile = gzopen(_hdrname.c_str(), "wb");
+		_file = NULL;
+	}
+	else
+	{
+		_file =	fopen(_hdrname.c_str(), "wb");
+		_gzFile = NULL;
+	}
+		
+	if(!(_gzFile || _file)) {
 		std::cerr << "NiftiImage: Cannot open header file " << _hdrname << " for writing." << std::endl;
 		abort();
 	}
 	
 	/* write the header and extensions */
-	size_t bytesWritten = znzwrite(&nhdr, 1, sizeof(nhdr), fp); /* write header */
+	size_t bytesWritten;
+	if (_gz)
+		bytesWritten = gzwrite(_gzFile, &nhdr, sizeof(nhdr));
+	else
+		bytesWritten = fwrite(&nhdr, sizeof(nhdr), 1, _file);
 	/* partial file exists, and errors have been printed, so ignore return */
 	//if( nim->nifti_type != NIFTI_FTYPE_ANALYZE )
 	//	(void)nifti_write_extensions(fp,nim);
@@ -1742,15 +1855,21 @@ void NiftiImage::writeHeader(std::string path)
 		std::cerr << "NiftiImage: Could not write header to file " << _hdrname << "." << std::endl;
 		abort();
 	}
-	if (_hdrname == _imgname)
-		_imgfile = fp;
-	else
-	{
-		znzclose(fp);
-		_imgfile = znzopen(_imgname.c_str(), "wb", _gz);
-		if (!_imgfile)
+	if (_hdrname != _imgname)
+	{	// Close header and open image file
+		if (_gz)
 		{
-			std::cerr << "Could not open image file " << _imgfile << " for writing." << std::endl;
+			gzclose(_gzFile);
+			_gzFile = gzopen(_imgname.c_str(), "wb");
+		}
+		else
+		{
+			fclose(_file);
+			_file = fopen(_imgname.c_str(), "wb");
+		}
+		if (!(_file || _gzFile))
+		{
+			std::cerr << "Could not open image file " << _imgname << " for writing." << std::endl;
 			abort();
 		}
 	}
@@ -1771,7 +1890,11 @@ void *NiftiImage::readBuffer(size_t start, size_t length)
 	
 	void *raw = malloc(length);
 	seek(_voxoffset + start, SEEK_SET);
-	size_t bytesRead = znzread(raw, 1, length, _imgfile);
+	size_t bytesRead;
+	if (_gz)
+		bytesRead = gzread(_gzFile, raw, static_cast<unsigned int>(length));
+	else
+		bytesRead = fread(raw, length, 1, _file);
 	
 	if (bytesRead < length)
 	{
@@ -1799,7 +1922,11 @@ void NiftiImage::writeBuffer(void *data, size_t start, size_t length)
 		return;
 	}
 	seek(_voxoffset + start, SEEK_SET);
-	size_t bytesWritten = znzwrite(data, 1, length, _imgfile);
+	size_t bytesWritten;
+	if (_gz)
+		bytesWritten = gzwrite(_gzFile, data, static_cast<unsigned int>(length));
+	else
+		bytesWritten = fwrite(data, length, 1, _file);
 	
 	if (bytesWritten < length)
 	{
@@ -1833,17 +1960,11 @@ void NiftiImage::open(std::string filename, char mode)
 	}
 	if (mode == NIFTI_READ) {
 		_mode = NIFTI_READ;
-		readHeader(_hdrname);
-		_imgfile = znzopen(_imgname.c_str(), "rb", _gz);
-		if (!_imgfile)
-		{
-			std::cerr << "Could not open image file " << _imgfile << " for reading." << std::endl;
-			abort();
-		}
+		readHeader(_hdrname); // readHeader leaves _file pointing to image file
 		seek(_voxoffset, SEEK_SET);
 	} else if (mode == NIFTI_WRITE) {
 		_mode = NIFTI_WRITE;
-		writeHeader(_hdrname); // writeHeader ensures _imgfile is opened to the correct file
+		writeHeader(_hdrname); // writeHeader ensures file is opened to the correct file
 		seek(_voxoffset, SEEK_SET);
 	} else {
 		std::cerr << "Invalid NiftImage mode '" << mode << "'." << std::endl;
@@ -1853,8 +1974,18 @@ void NiftiImage::open(std::string filename, char mode)
 
 void NiftiImage::close()
 {
-	//znzflush(_imgfile); // Have observed missing data when not flushing zipped files before close
-	znzclose(_imgfile);
+	if (_gz)
+	{
+		gzflush(_gzFile, Z_FINISH);
+		gzclose(_gzFile);
+		_gzFile = NULL;
+	}
+	else
+	{
+		fflush(_file);
+		fclose(_file);
+		_file = NULL;
+	}
 	_mode = NIFTI_CLOSED;
 }
 

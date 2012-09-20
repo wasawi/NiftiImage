@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <znzlib.h>
+#include <zlib.h>
 
 #include <string>
 #include <iostream>
@@ -255,12 +255,19 @@ class NiftiImage
 		nifti1_extension *_ext_list;
 		char _mode;
 		bool _gz;
-		znzFile _imgfile;
+		
+		FILE *_file;
+		gzFile _gzFile;
 		
 		void setFilenames(const std::string &filename);
 		static int needs_swap(short dim0, int hdrsize);
 		static float fixFloat(const float f);
-		void seek(long offset, int whence);
+		
+		size_t read(void *buff, size_t size, size_t nmemb);
+		size_t write(const void *buff, size_t size, size_t nmemb);
+		long seek(long offset, int whence);
+		int rewind();
+		
 		void readHeader(std::string path);
 		void writeHeader(std::string path);
 		void *readBuffer(size_t start, size_t length);
