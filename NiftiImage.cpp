@@ -1687,7 +1687,7 @@ void NiftiImage::writeHeader(std::string path)
 	nhdr.toffset    = toffset ;
 	
 	if(qform_code > 0) {
-		nhdr.qform_code = qform_code ;
+		nhdr.qform_code = qform_code;
 		Quaterniond Q(_qform.rotation());
 		Translation3d T(_qform.translation());
 		Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
