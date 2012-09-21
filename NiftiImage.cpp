@@ -1545,9 +1545,8 @@ inline float NiftiImage::fixFloat(const float f)
 
 void NiftiImage::readHeader(std::string path)
 {
-	struct nifti_1_header  nhdr;
-	size_t                 bytes_read;
-
+	struct nifti_1_header nhdr;
+	
 	if (_gz)
 	{
 		_gzFile = gzopen(path.c_str(), "rb");
@@ -1564,16 +1563,17 @@ void NiftiImage::readHeader(std::string path)
 		abort();
 	}
 	
+	size_t obj_read;
 	if (_gz)
-		bytes_read = gzread(_gzFile, &nhdr, sizeof(nhdr));  /* read the thing */
-	else
-		bytes_read = fread(&nhdr, sizeof(nhdr), 1, _file);
-	
-	/* keep file open so we can check for exts. after nifti_convert_nhdr2nim() */
-	if (bytes_read < sizeof(nhdr))
 	{
-		std::cerr << "Only read " << bytes_read << " bytes from " << _hdrname <<
-		             ", should have been " << sizeof(nhdr) << "." << std::endl;
+		size_t bytes_read = gzread(_gzFile, &nhdr, sizeof(nhdr));  /* read the thing */
+		obj_read = bytes_read / sizeof(nhdr);
+	}
+	else
+		obj_read = fread(&nhdr, sizeof(nhdr), 1, _file);
+	if (obj_read < 1)
+	{
+		std::cerr << "Could not read header structure from " << _hdrname << "." << std::endl;
 		if (_gz)
 			gzclose(_gzFile);
 		else
@@ -1900,16 +1900,18 @@ void *NiftiImage::readBuffer(size_t start, size_t length)
 	
 	void *raw = malloc(length);
 	seek(_voxoffset + start, SEEK_SET);
-	size_t bytesRead;
+	size_t obj_read;
 	if (_gz)
-		bytesRead = gzread(_gzFile, raw, static_cast<unsigned int>(length));
-	else
-		bytesRead = fread(raw, length, 1, _file);
-	
-	if (bytesRead < length)
 	{
-		std::cerr << "NiftiImage: Read buffer was short by " << (length - bytesRead)
-				  << " bytes." << std::endl;
+		size_t bytesRead = gzread(_gzFile, raw, static_cast<unsigned int>(length));
+		obj_read = bytesRead / length;
+	}
+	else
+		obj_read = fread(raw, length, 1, _file);
+	
+	if (obj_read != 1)
+	{
+		std::cerr << "NiftiImage: Read buffer returned wrong number of bytes." << std::endl;
 		free(raw);
 		return NULL;
 	}
@@ -1932,17 +1934,17 @@ void NiftiImage::writeBuffer(void *data, size_t start, size_t length)
 		return;
 	}
 	seek(_voxoffset + start, SEEK_SET);
-	size_t bytesWritten;
+	size_t obj_written;
 	if (_gz)
-		bytesWritten = gzwrite(_gzFile, data, static_cast<unsigned int>(length));
-	else
-		bytesWritten = fwrite(data, length, 1, _file);
-	
-	if (bytesWritten < length)
 	{
-		std::cerr << "NiftiImage: Write buffer was short by " << (length - bytesWritten)
-				  << " bytes." << std::endl;
+		size_t bytesWritten = gzwrite(_gzFile, data, static_cast<unsigned int>(length));
+		obj_written = bytesWritten / length;
 	}
+	else
+		obj_written = fwrite(data, length, 1, _file);
+	
+	if (obj_written != 1)
+		std::cerr << "NiftiImage: Write buffer failed." << std::endl;
 }
 
 void *NiftiImage::readRawVolume(const int vol)
