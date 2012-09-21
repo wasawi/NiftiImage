@@ -1574,7 +1574,12 @@ void NiftiImage::readHeader(std::string path)
 	{
 		std::cerr << "Only read " << bytes_read << " bytes from " << _hdrname <<
 		             ", should have been " << sizeof(nhdr) << "." << std::endl;
-		abort();
+		if (_gz)
+			gzclose(_gzFile);
+		else
+			fclose(_file);
+		_gzFile = _file = NULL;
+		return;
 	}
 	
 	/**- check if we must swap bytes */
@@ -1583,7 +1588,12 @@ void NiftiImage::readHeader(std::string path)
 	{
 		std::cerr << "Could not determine byte order of header " <<
 					 _hdrname << "." << std::endl;
-		abort();
+		if (_gz)
+			gzclose(_gzFile);
+		else
+			fclose(_file);
+		_gzFile = _file = NULL;
+		return;
 	}
 	
 	// Check the magic string is set to one of the possible NIfTI values,
@@ -1948,7 +1958,7 @@ void *NiftiImage::readRawAllVolumes()
 	return raw;
 }
 		
-void NiftiImage::open(std::string filename, char mode)
+bool NiftiImage::open(std::string filename, char mode)
 {
 	setFilenames(filename);
 	if (_mode != NIFTI_CLOSED)
@@ -1959,17 +1969,22 @@ void NiftiImage::open(std::string filename, char mode)
 		abort();
 	}
 	if (mode == NIFTI_READ) {
+		readHeader(_hdrname); // readHeader leaves _file pointing to image file on success
+		if (!(_gzFile || _file))
+			return false;
 		_mode = NIFTI_READ;
-		readHeader(_hdrname); // readHeader leaves _file pointing to image file
 		seek(_voxoffset, SEEK_SET);
 	} else if (mode == NIFTI_WRITE) {
+		writeHeader(_hdrname); // writeHeader ensures file is opened to image file on success
+		if (!(_gzFile || _file))
+			return false;
 		_mode = NIFTI_WRITE;
-		writeHeader(_hdrname); // writeHeader ensures file is opened to the correct file
 		seek(_voxoffset, SEEK_SET);
 	} else {
 		std::cerr << "Invalid NiftImage mode '" << mode << "'." << std::endl;
-		abort();
+		return false;
 	}
+	return true;
 }
 
 void NiftiImage::close()

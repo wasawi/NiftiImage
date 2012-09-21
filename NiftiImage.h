@@ -355,7 +355,7 @@ class NiftiImage
 		
 		static void printDTypeList();
 		
-		void open(std::string filename, char mode);
+		bool open(std::string filename, char mode);
 		void close();
 		const std::string &basename();
 		void *readRawVolume(const int vol);
