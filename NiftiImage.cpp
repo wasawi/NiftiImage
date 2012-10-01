@@ -1292,9 +1292,24 @@ NiftiImage::NiftiImage() :
 	_dim(),
 	_voxdim(),
 	_mode(NIFTI_CLOSED),
-	_gz(false)
+	_gz(false),
+	_datatype(NIFTI_TYPE_FLOAT32)
 {
 	_qform.setIdentity(); _sform.setIdentity();
+}
+
+NiftiImage::NiftiImage(const int nx, const int ny, const int nz, const int nt,
+		               const float dx, const float dy, const float dz, const float dt,
+		               const int datatype) :
+	_nvox(nx * ny * nz * nt),
+	_mode(NIFTI_CLOSED),
+	_gz(false),
+	_datatype(datatype)
+{
+	_qform.setIdentity(); _sform.setIdentity();
+	_dim[1] = nx; _dim[2] = ny; _dim[3] = nz; _dim[4] = nt;
+	_dim[0] = (nt > 1) ? 4 : 3;
+	_voxdim[1] = dx; _voxdim[2] = ny; _voxdim[3] = dz; _voxdim[4] = dt;
 }
 
 NiftiImage::NiftiImage(const NiftiImage &clone) :

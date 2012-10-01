@@ -350,7 +350,8 @@ class NiftiImage
 		NiftiImage();
 		NiftiImage(const NiftiImage &clone);
 		NiftiImage(const int nx, const int ny, const int nz, const int nt,
-		           const float dx, const float dy, const float dz, const float dt);
+		           const float dx, const float dy, const float dz, const float dt,
+				   const int datatype);
 		NiftiImage(const std::string filename);
 		
 		static void printDTypeList();
