@@ -1912,6 +1912,11 @@ void *NiftiImage::readBuffer(size_t start, size_t length)
 		std::cerr << "NiftiImage: Cannot read from a file opened for writing." << std::endl;
 		return NULL;
 	}
+	if (length == 0)
+	{
+		std::cerr << "NiftiImage: Asked to read a buffer of 0 bytes." << std::endl;
+		return NULL;
+	}
 	
 	void *raw = malloc(length);
 	seek(_voxoffset + start, SEEK_SET);
@@ -1971,7 +1976,7 @@ void *NiftiImage::readRawVolume(const int vol)
 }
 void *NiftiImage::readRawAllVolumes()
 {
-	void *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.swapsize);
+	void *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.size);
 	return raw;
 }
 		
