@@ -2,6 +2,7 @@
  \brief Declaration for NiftiImage class
  - Written by Tobias Wood, IoP KCL
  - Based on nifti1_io.h (Thanks to Robert Cox et al)
+ - This code is released to the public domain. Do with it what you will.
  */
 #ifndef _NIFTI_IO_HEADER_3
 #define _NIFTI_IO_HEADER_3
@@ -353,7 +354,7 @@ class NiftiImage
 		           const float dx, const float dy, const float dz, const float dt,
 				   const int datatype);
 		NiftiImage(const std::string filename);
-		
+		NiftiImage &operator=(const NiftiImage &other);
 		static void printDTypeList();
 		
 		bool open(std::string filename, char mode);
@@ -406,6 +407,7 @@ class NiftiImage
 		
 		int datatype() const;
 		void setDatatype(const int dt);
+		bool volumesCompatible(const NiftiImage &other) const; /// Check whether a volume from this header can be used in calculations with another header.
 		
 		float dx() const;
 		float dy() const;

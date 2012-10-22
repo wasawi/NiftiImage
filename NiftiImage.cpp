@@ -1342,6 +1342,53 @@ NiftiImage::NiftiImage(const NiftiImage &clone) :
 	//analyze_75_orient_code analyze75_orient; /*!< for old analyze files, orient */
 }
 
+NiftiImage &NiftiImage::operator=(const NiftiImage &other)
+{
+	if (this == &other)
+		return *this;
+	else if (_mode != NIFTI_CLOSED)
+		close();
+	
+	_nvox = other._nvox;
+	_qform = other._qform;
+	_sform = other._sform;
+	_inverse = other._inverse;
+	_datatype = other._datatype;
+	_mode = NIFTI_CLOSED;
+	_gz = false;
+	_voxoffset = 0;
+	scaling_slope = other.scaling_slope;
+	scaling_inter = other.scaling_inter;
+	calibration_min = other.calibration_min;
+	calibration_max = other.calibration_max;
+	qform_code = other.qform_code;
+	sform_code = other.sform_code;
+	freq_dim = other.freq_dim;
+	phase_dim = other.phase_dim;
+	slice_dim = other.slice_dim;
+	slice_code = other.slice_code;
+	slice_start = other.slice_start;
+	slice_end = other.slice_end;
+	slice_duration = other.slice_duration;
+	toffset = other.toffset;
+	xyz_units = other.xyz_units;
+	time_units = other.time_units;
+	intent_code = other.intent_code;
+	intent_p1 = other.intent_p1;
+	intent_p2 = other.intent_p2;
+	intent_p3 = other.intent_p3;
+	intent_name = other.intent_name;
+	description = other.description;
+	aux_file = other.aux_file;
+	
+	for (int i = 0; i < 8; i++)
+	{
+		_dim[i] = other._dim[i];
+		_voxdim[i] = other._voxdim[i];
+	}
+	return *this;
+}
+
 bool isGZippedFile(const std::string &fname)
 {
 	if (fname.find_last_of(".") != std::string::npos)
@@ -2084,6 +2131,23 @@ void NiftiImage::setDatatype(const int dt)
 		_datatype = dt;
 	else
 		std::cerr << "NiftiImage: Attempted to set invalid datatype " << dt << std::endl;
+}
+
+bool NiftiImage::volumesCompatible(const NiftiImage &other) const
+{
+	if ((nx() == other.nx()) &&
+	    (ny() == other.ny()) &&
+		(nz() == other.nz()) &&
+		(dx() == other.dx()) &&
+		(dy() == other.dy()) &&
+		(dz() == other.dz()) &&
+		(ijk_to_xyz() == other.ijk_to_xyz()))
+	{	// Then we have the same number of voxels, dimensions are the same,
+	    // and get transformed to the same spatial locations.
+		return true;
+	}
+	else
+		return false;
 }
 
 const Matrix4d &NiftiImage::qform() const { return _qform.matrix(); }
