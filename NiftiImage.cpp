@@ -1428,8 +1428,8 @@ void NiftiImage::setFilenames(const std::string &fname)
 	}
 	else
 	{
-		std::cerr << "Extension " << ext << " is not a valid NIfTI extension." << std::endl;
-		abort();
+		std::cerr << "NiftiImage: Extension " << ext << " is not a valid NIfTI extension." << std::endl;
+		exit(EXIT_FAILURE);
 	}
 	if (_gz)
 	{
@@ -1520,13 +1520,13 @@ long NiftiImage::seek(long offset, int whence)
 		else
 		{
 			std::cerr << "NiftiImage: Reading with SEEK_END is not implemented." << std::endl;
-			abort();
+			exit(EXIT_FAILURE);
 		}
 		
 		if (newpos < _voxoffset)
 		{
 			std::cerr << "NiftiImage: Attempted to seek into the header while reading from " << _imgname << "." << std::endl;
-			abort();
+			exit(EXIT_FAILURE);
 		}
 	} else if (_mode == NIFTI_WRITE) {
 		if (whence == SEEK_SET)
@@ -1536,22 +1536,22 @@ long NiftiImage::seek(long offset, int whence)
 		else
 		{
 			std::cerr << "NiftiImage: Writing with SEEK_END is not implemented." << std::endl;
-			abort();
+			exit(EXIT_FAILURE);
 		}
 		
 		if (newpos < _voxoffset)
 		{
 			std::cerr << "NiftiImage: Attempted to seek into the header while writing to " << _imgname << "." << std::endl;
-			abort();
+			exit(EXIT_FAILURE);
 		}
 		else if (_gz && newpos < currpos)
 		{
 			std::cerr << "NiftiImage: Cannot seek backwards while writing a file with libz." << std::endl;
-			abort();
+			exit(EXIT_FAILURE);
 		}
 	} else {
 		std::cerr << "NiftiImage: Cannot seek in a closed file." << std::endl;
-		abort();
+		exit(EXIT_FAILURE);
 	}
 	long error;
 	if (_gz)
@@ -1627,7 +1627,7 @@ void NiftiImage::readHeader(std::string path)
 	if (!(_gzFile || _file))
 	{
 		std::cerr << "Failed to open header from file: " << path << std::endl;
-		abort();
+		exit(EXIT_FAILURE);
 	}
 	
 	size_t obj_read;
@@ -1916,7 +1916,7 @@ void NiftiImage::writeHeader(std::string path)
 		
 	if(!(_gzFile || _file)) {
 		std::cerr << "NiftiImage: Cannot open header file " << _hdrname << " for writing." << std::endl;
-		abort();
+		exit(EXIT_FAILURE);
 	}
 	
 	/* write the header and extensions */
@@ -1930,7 +1930,7 @@ void NiftiImage::writeHeader(std::string path)
 	//	(void)nifti_write_extensions(fp,nim);
 	if(bytesWritten < sizeof(nhdr)) {
 		std::cerr << "NiftiImage: Could not write header to file " << _hdrname << "." << std::endl;
-		abort();
+		exit(EXIT_FAILURE);
 	}
 	if (_hdrname != _imgname)
 	{	// Close header and open image file
@@ -1947,7 +1947,7 @@ void NiftiImage::writeHeader(std::string path)
 		if (!(_file || _gzFile))
 		{
 			std::cerr << "Could not open image file " << _imgname << " for writing." << std::endl;
-			abort();
+			exit(EXIT_FAILURE);
 		}
 	}
 }
@@ -2049,7 +2049,7 @@ bool NiftiImage::open(const std::string &filename, const char &mode)
 		std::cerr << "NiftiImage: Attempted to open file " << filename
 				  << " using NiftiImage that is already open with file "
 				  << _imgname << "." << std::endl;
-		abort();
+		exit(EXIT_FAILURE);
 	}
 	if (mode == NIFTI_READ) {
 		readHeader(_hdrname); // readHeader leaves _file pointing to image file on success
@@ -2115,7 +2115,7 @@ void NiftiImage::setnt(const int nt)
 	else
 	{
 		std::cerr << "NiftiImage: Cannot change the dimensions of an image once opened." << std::endl;
-		abort();
+		exit(EXIT_FAILURE);
 	}	
 }
 
