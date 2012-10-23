@@ -271,11 +271,18 @@ class NiftiImage
 		
 		void readHeader(std::string path);
 		void writeHeader(std::string path);
-		void *readBuffer(size_t start, size_t length);
-		void writeBuffer(void *buffer, size_t start, size_t length);
-		template<typename T> T *convertBuffer(const void *raw, const size_t bufferSize)
+		char *readBuffer(size_t start, size_t length);
+		int readBufferInPlace(size_t start, size_t length, char *raw);
+		void writeBuffer(char *buffer, size_t start, size_t length);
+		template<typename T> T *convertBuffer(const char *raw, const size_t bufferSize)
 		{
 			T *converted = (T *)malloc(bufferSize * sizeof(T));
+			convertBufferInPlace(raw, bufferSize, converted);
+			return converted;
+		}
+		
+		template<typename T> void convertBufferInPlace(const char *raw, const size_t bufferSize, T *converted)
+		{
 			for (int i = 0; i < bufferSize; i++) {
 				switch (_datatype) {
 					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
@@ -306,11 +313,11 @@ class NiftiImage
 					//case DT_COMPLEX256: converted[i] = (T)((std::complex<long double> *)raw)[i]; break;
 				}
 			}
-			return converted;
 		}
-		template<typename T> void *convertToBuffer(const T *raw, const size_t bufferSize)
+		
+		template<typename T> char *convertToBuffer(const T *raw, const size_t bufferSize)
 		{
-			void *converted = malloc(DTypes.find(_datatype)->second.size * bufferSize);
+			char *converted = (char *)malloc(DTypes.find(_datatype)->second.size * bufferSize);
 			for (int i = 0; i < bufferSize; i++) {
 				switch (_datatype) {
 					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
@@ -353,20 +360,57 @@ class NiftiImage
 		NiftiImage(const int nx, const int ny, const int nz, const int nt,
 		           const float dx, const float dy, const float dz, const float dt,
 				   const int datatype);
-		NiftiImage(const std::string filename);
+		NiftiImage(const std::string &filename, const char &mode);
 		NiftiImage &operator=(const NiftiImage &other);
 		static void printDTypeList();
 		
-		bool open(std::string filename, char mode);
+		bool open(const std::string &filename, const char &mode);
 		void close();
 		const std::string &basename();
-		void *readRawVolume(const int vol);
-		void *readRawAllVolumes();
-		template<typename T> T *readVolume(const int vol)
+		char *readRawVolume(const int vol);
+		char *readRawAllVolumes();
+		template<typename T> T *readVolume(const int &vol)
 		{
 			size_t bytesPerVolume = voxelsPerVolume() *
 			                        DTypes.find(_datatype)->second.size;
-			void *raw = readBuffer(vol * bytesPerVolume, bytesPerVolume);
+			char *raw = readBuffer(vol * bytesPerVolume, bytesPerVolume);
+			T *converted = convertBuffer<T>(raw, voxelsPerVolume());
+			free(raw);
+			return converted;
+		}
+		
+		template<typename T> T *readSubvolume(const int &sx, const int &sy, const int &sz, const int &st,
+		                                      int ex, int ey, int ez, int et)
+		{
+			if (ex == -1) ex = nx();
+			if (ey == -1) ey = ny();
+			if (ez == -1) ez = nz();
+			if (et == -1) et = nt();
+			size_t dBytes = DTypes.find(_datatype)->second.size;
+			size_t startBytes = sx * dBytes;
+			size_t readBytes = (ex - sx) * dBytes;
+			size_t rowBytes = nx() * dBytes;
+			size_t sliceBytes = rowBytes * ny();
+			size_t volumeBytes = sliceBytes * nz();
+			size_t totalBytes = readBytes * (ey - sy) * (ez - sz) * (et - st);
+			
+			char *raw = (char *)malloc(totalBytes);
+			char *nextRead = raw;
+			for (int t = st; t < et; t++)
+			{
+				for (int z = sz; z < ez; z++)
+				{	for (int y = sy; y < ey; y++)
+					{
+						if (readBufferInPlace(volumeBytes * t + sliceBytes * z + rowBytes * y + startBytes, readBytes, nextRead))
+							nextRead += readBytes;
+						else
+						{
+							std::cerr << "NiftiImage: readSubvolume failed." << std::endl;
+							exit(EXIT_FAILURE);
+						}
+					}
+				}
+			}
 			T *converted = convertBuffer<T>(raw, voxelsPerVolume());
 			free(raw);
 			return converted;
@@ -383,14 +427,14 @@ class NiftiImage
 		template<typename T> void writeVolume(const int vol, T *data)
 		{
 			size_t bytesPerVolume = voxelsPerVolume() * DTypes.find(_datatype)->second.size;
-			void *converted = convertToBuffer<T>(data, voxelsPerVolume());
+			char *converted = convertToBuffer<T>(data, voxelsPerVolume());
 			writeBuffer(converted, vol * bytesPerVolume, bytesPerVolume);
 			free(converted);
 		}
 		
 		template<typename T> void writeAllVolumes(T *data)
 		{
-			void *converted = convertBuffer<T>(data, nvox());
+			char *converted = convertBuffer<T>(data, nvox());
 			writeBuffer(converted, 0, nvox() * DTypes.find(_datatype)->second.size);
 			free(converted);
 		}

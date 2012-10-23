@@ -1298,6 +1298,11 @@ NiftiImage::NiftiImage() :
 	_qform.setIdentity(); _sform.setIdentity();
 }
 
+NiftiImage::NiftiImage(const std::string &filename, const char &mode)
+{
+	open(filename, mode);
+}
+
 NiftiImage::NiftiImage(const int nx, const int ny, const int nz, const int nt,
 		               const float dx, const float dy, const float dz, const float dt,
 		               const int datatype) :
@@ -1947,25 +1952,35 @@ void NiftiImage::writeHeader(std::string path)
 	}
 }
 
-void *NiftiImage::readBuffer(size_t start, size_t length)
+char *NiftiImage::readBuffer(size_t start, size_t length)
+{
+	char *raw = (char *)malloc(length);
+	if (!readBufferInPlace(start, length, raw))
+	{	// Read failed
+		free(raw);
+		raw = NULL;
+	}
+	return raw;
+}
+
+int NiftiImage::readBufferInPlace(size_t start, size_t length, char *raw)
 {
 	if (_mode == NIFTI_CLOSED)
 	{
 		std::cerr << "NiftiImage: Cannot read from a closed file." << std::endl;
-		return NULL;
+		return false;
 	}
 	if (_mode == NIFTI_WRITE)
 	{
 		std::cerr << "NiftiImage: Cannot read from a file opened for writing." << std::endl;
-		return NULL;
+		return false;
 	}
 	if (length == 0)
 	{
 		std::cerr << "NiftiImage: Asked to read a buffer of 0 bytes." << std::endl;
-		return NULL;
+		return false;
 	}
 	
-	void *raw = malloc(length);
 	seek(_voxoffset + start, SEEK_SET);
 	size_t obj_read;
 	if (_gz)
@@ -1979,16 +1994,15 @@ void *NiftiImage::readBuffer(size_t start, size_t length)
 	if (obj_read != 1)
 	{
 		std::cerr << "NiftiImage: Read buffer returned wrong number of bytes." << std::endl;
-		free(raw);
-		return NULL;
+		return false;
 	}
 	int swapsize = DTypes.find(_datatype)->second.swapsize;
 	if (swapsize > 1 && _byteorder != nifti_short_order())
 		nifti_swap_bytes(length / swapsize, swapsize, raw);
-	return raw;
+	return true;
 }
 
-void NiftiImage::writeBuffer(void *data, size_t start, size_t length)
+void NiftiImage::writeBuffer(char *data, size_t start, size_t length)
 {
 	if (_mode == NIFTI_CLOSED)
 	{
@@ -2014,20 +2028,20 @@ void NiftiImage::writeBuffer(void *data, size_t start, size_t length)
 		std::cerr << "NiftiImage: Write buffer failed." << std::endl;
 }
 
-void *NiftiImage::readRawVolume(const int vol)
+char *NiftiImage::readRawVolume(const int vol)
 {
 	size_t bytesPerVolume = voxelsPerVolume() *
 	                        DTypes.find(_datatype)->second.size;
-	void *raw = readBuffer(vol * bytesPerVolume, bytesPerVolume);
+	char *raw = readBuffer(vol * bytesPerVolume, bytesPerVolume);
 	return raw;
 }
-void *NiftiImage::readRawAllVolumes()
+char *NiftiImage::readRawAllVolumes()
 {
-	void *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.size);
+	char *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.size);
 	return raw;
 }
 		
-bool NiftiImage::open(std::string filename, char mode)
+bool NiftiImage::open(const std::string &filename, const char &mode)
 {
 	setFilenames(filename);
 	if (_mode != NIFTI_CLOSED)
@@ -2147,7 +2161,14 @@ bool NiftiImage::volumesCompatible(const NiftiImage &other) const
 		return true;
 	}
 	else
+	{
+		std::cout << "NiftiImage: Headers are incompatible." << std::endl;
+		std::cout << "Header 1: " << nx() << " " << ny() << " " << nz() << " " << dx() << " " << dy() << " " << dz() << std::endl;
+		std::cout << ijk_to_xyz() << std::endl;
+		std::cout << "Header 2: " << other.nx() << " " << other.ny() << " " << other.nz() << " " << other.dx() << " " << other.dy() << " " << other.dz() << std::endl;
+		std::cout << other.ijk_to_xyz() << std::endl;
 		return false;
+	}
 }
 
 const Matrix4d &NiftiImage::qform() const { return _qform.matrix(); }
