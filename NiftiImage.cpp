@@ -1298,7 +1298,8 @@ NiftiImage::NiftiImage() :
 	_qform.setIdentity(); _sform.setIdentity();
 }
 
-NiftiImage::NiftiImage(const std::string &filename, const char &mode)
+NiftiImage::NiftiImage(const std::string &filename, const char &mode) :
+	NiftiImage()
 {
 	open(filename, mode);
 }
@@ -1306,11 +1307,9 @@ NiftiImage::NiftiImage(const std::string &filename, const char &mode)
 NiftiImage::NiftiImage(const int nx, const int ny, const int nz, const int nt,
 		               const float dx, const float dy, const float dz, const float dt,
 		               const int datatype) :
-	_nvox(nx * ny * nz * nt),
-	_mode(NIFTI_CLOSED),
-	_gz(false),
-	_datatype(datatype)
+	NiftiImage()
 {
+	_datatype = datatype;
 	_qform.setIdentity(); _sform.setIdentity();
 	_dim[1] = nx; _dim[2] = ny; _dim[3] = nz; _dim[4] = nt;
 	_dim[0] = (nt > 1) ? 4 : 3;
@@ -1318,7 +1317,6 @@ NiftiImage::NiftiImage(const int nx, const int ny, const int nz, const int nt,
 }
 
 NiftiImage::NiftiImage(const NiftiImage &clone) :
-	_nvox(clone._nvox),
 	_qform(clone._qform), _sform(clone._sform), _inverse(clone._inverse),
 	_datatype(clone._datatype),	_mode(NIFTI_CLOSED), _gz(false),
 	_voxoffset(0),
@@ -1354,7 +1352,6 @@ NiftiImage &NiftiImage::operator=(const NiftiImage &other)
 	else if (_mode != NIFTI_CLOSED)
 		close();
 	
-	_nvox = other._nvox;
 	_qform = other._qform;
 	_sform = other._sform;
 	_inverse = other._inverse;
@@ -1697,10 +1694,6 @@ void NiftiImage::readHeader(std::string path)
 		_voxdim[i] = nhdr.pixdim[i];
 	}
 	
-	_nvox = 1;
-	for(int i=1; i <= _dim[0]; i++ )
-		_nvox *= _dim[i];
-	
 	/**- set the type of data in voxels and how many bytes per voxel */
 	_datatype = nhdr.datatype;
 	
@@ -2037,7 +2030,7 @@ char *NiftiImage::readRawVolume(const int vol)
 }
 char *NiftiImage::readRawAllVolumes()
 {
-	char *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.size);
+	char *raw =	readBuffer(0, voxelsTotal() * DTypes.find(_datatype)->second.size);
 	return raw;
 }
 		
@@ -2127,8 +2120,9 @@ void NiftiImage::setDims(const int nx, const int ny, const int nz, const int nt)
 	_dim[2] = ny;
 	_dim[3] = nz;
 }
+int NiftiImage::voxelsPerSlice() const  { return _dim[1]*_dim[2]; };
 int NiftiImage::voxelsPerVolume() const { return _dim[1]*_dim[2]*_dim[3]; };
-int NiftiImage::nvox() const { return _dim[1]*_dim[2]*_dim[3]*_dim[4]; };
+int NiftiImage::voxelsTotal() const     { return _dim[1]*_dim[2]*_dim[3]*_dim[4]; };
 float NiftiImage::dx() const { return _voxdim[1]; }
 float NiftiImage::dy() const { return _voxdim[2]; }
 float NiftiImage::dz() const { return _voxdim[3]; }

@@ -245,7 +245,7 @@ typedef std::map<int, NiftiDataTypeInfo> DTMap;
 class NiftiImage
 {
 	private:
-		int _dim[8], _nvox;               /*!< number of voxels = nx*ny*nz*...*nw   */
+		int _dim[8];               /*!< number of voxels = nx*ny*nz*...*nw   */
 		float _voxdim[8];
 		Affine3d _qform, _sform, _inverse;
 		
@@ -411,15 +411,15 @@ class NiftiImage
 					}
 				}
 			}
-			T *converted = convertBuffer<T>(raw, voxelsPerVolume());
+			T *converted = convertBuffer<T>(raw, (ex - sx) * (ey - sy) * (ez - sz) * (et - st));
 			free(raw);
 			return converted;
 		}
 		
 		template<typename T> T *readAllVolumes()
 		{
-			void *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.size);
-			T *converted = convertBuffer<T>(raw, nvox());
+			void *raw =	readBuffer(0, voxelsTotal() * DTypes.find(_datatype)->second.size);
+			T *converted = convertBuffer<T>(raw, voxelsTotal());
 			free(raw);
 			return converted;
 		}
@@ -434,8 +434,8 @@ class NiftiImage
 		
 		template<typename T> void writeAllVolumes(T *data)
 		{
-			char *converted = convertBuffer<T>(data, nvox());
-			writeBuffer(converted, 0, nvox() * DTypes.find(_datatype)->second.size);
+			char *converted = convertBuffer<T>(data, voxelsTotal());
+			writeBuffer(converted, 0, voxelsTotal() * DTypes.find(_datatype)->second.size);
 			free(converted);
 		}
 		
@@ -444,8 +444,9 @@ class NiftiImage
 		int ny() const;
 		int nz() const;
 		int nt() const;
+		int voxelsPerSlice() const;
 		int voxelsPerVolume() const;
-		int nvox() const;
+		int voxelsTotal() const;
 		void setnt(const int nt);
 		void setDims(int nx, int ny, int nz, int nt);
 		
