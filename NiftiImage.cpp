@@ -1347,7 +1347,7 @@ void NiftiImage::readHeader(std::string path)
 		_file.zipped = gzopen(path.c_str(), "rb");
 	else
 		_file.unzipped = fopen(path.c_str(), "rb");
-	if (!(_file.zipped || _file.unzipped)) {
+	if (!_file.zipped) {
 		std::cerr << "Failed to open header from file: " << path << std::endl;
 		exit(EXIT_FAILURE);
 	}
@@ -1615,10 +1615,8 @@ void NiftiImage::writeHeader(std::string path)
 	else
 		_file.unzipped = fopen(_hdrname.c_str(), "wb");
 		
-	if(!(_file.zipped || _file.unzipped)) {
-		std::cerr << "NiftiImage: Cannot open header file " << _hdrname << " for writing." << std::endl;
-		exit(EXIT_FAILURE);
-	}
+	if(!_file.zipped)
+		NIFTI_FAIL("NiftiImage: Cannot open header file " + _hdrname + " for writing.");
 	
 	/* write the header and extensions */
 	size_t bytesWritten;
@@ -1642,10 +1640,8 @@ void NiftiImage::writeHeader(std::string path)
 			fclose(_file.unzipped);
 			_file.unzipped = fopen(_imgname.c_str(), "wb");
 		}
-		if (!(_file.zipped || _file.unzipped)) {
-			std::cerr << "Could not open image file " << _imgname << " for writing." << std::endl;
-			exit(EXIT_FAILURE);
-		}
+		if (!_file.zipped)
+			NIFTI_FAIL("Could not open image file " + _imgname + " for writing.");
 	}
 }
 
@@ -1761,27 +1757,22 @@ bool NiftiImage::open(const std::string &filename, const char &mode)
 {
 	setFilenames(filename);
 	if (_mode != NIFTI_CLOSED)
-	{
-		std::cerr << "NiftiImage: Attempted to open file " << filename
-				  << " using NiftiImage that is already open with file "
-				  << _imgname << "." << std::endl;
-		exit(EXIT_FAILURE);
-	}
+		NIFTI_FAIL("Attempted to open file " + filename +
+		           " using NiftiImage that is already open with file " + _imgname);
 	if (mode == NIFTI_READ) {
 		readHeader(_hdrname); // readHeader leaves _file pointing to image file on success
-		if (!(_file.zipped || _file.unzipped))
+		if (!_file.zipped)
 			return false;
 		_mode = NIFTI_READ;
 		seek(_voxoffset, SEEK_SET);
 	} else if (mode == NIFTI_WRITE) {
 		writeHeader(_hdrname); // writeHeader ensures file is opened to image file on success
-		if (!(_file.zipped || _file.unzipped))
+		if (!_file.zipped)
 			return false;
 		_mode = NIFTI_WRITE;
 		seek(_voxoffset, SEEK_SET);
 	} else {
-		std::cerr << "Invalid NiftImage mode '" << mode << "'." << std::endl;
-		return false;
+		NIFTI_FAIL(std::string("Invalid NiftImage mode '") + mode + "'.");
 	}
 	return true;
 }
