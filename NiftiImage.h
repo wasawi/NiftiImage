@@ -191,11 +191,16 @@ class NiftiImage
 {
 	private:
 
-		struct NiftiDataTypeInfo
-		{
+		struct NiftiDataTypeInfo {
 			int size, swapsize;
 			std::string name;
 		};
+		
+		union ZFile {
+			FILE *unzipped;
+			gzFile zipped;
+		};
+		
 		typedef std::map<int, NiftiDataTypeInfo> DTMap;
 		typedef std::map<int, std::string> StringMap;
 		
@@ -214,9 +219,7 @@ class NiftiImage
 		nifti1_extension *_ext_list;
 		char _mode;
 		bool _gz;
-		
-		FILE *_file;
-		gzFile _gzFile;
+		ZFile _file;
 		
 		void setFilenames(const std::string &filename);
 		static int needs_swap(short dim0, int hdrsize);
