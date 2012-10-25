@@ -237,7 +237,6 @@ class NiftiImage
 		void readHeader(std::string path);
 		void writeHeader(std::string path);
 		char *readBytes(size_t start, size_t length, char *buffer = NULL);
-		int readBytesInPlace(size_t start, size_t length, char *raw);
 		void writeBytes(char *buffer, size_t start, size_t length);
 
 		/**
@@ -487,7 +486,7 @@ class NiftiImage
 		
 		template<typename T> T *readAllVolumes()
 		{
-			void *raw =	readBytes(0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
+			char *raw =	readBytes(0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
 			T *converted = convertFromBytes<T>(raw, voxelsTotal());
 			free(raw);
 			return converted;
