@@ -423,19 +423,19 @@ class NiftiImage
 		const std::string &transformName() const;
 		const std::string &sliceName() const;
 		
-		template<typename T> T *readVolume(const int &vol)
+		template<typename T> T *readVolume(const int &vol, T *converted = NULL)
 		{
 			size_t bytesPerVolume = voxelsPerVolume() *
 			                        DataTypes.find(_datatype)->second.size;
 			char *raw = readBytes(vol * bytesPerVolume, bytesPerVolume);
-			T *converted = new T[voxelsPerVolume()];
-			convertFromBytes<T>(raw, voxelsPerVolume(), converted);
-			free(raw);
+			converted = convertFromBytes<T>(raw, voxelsPerVolume(), converted);
+			delete[] raw;
 			return converted;
 		}
 		
 		template<typename T> T *readSubvolume(const int &sx, const int &sy, const int &sz, const int &st,
-		                                      const int &ex, const int &ey, const int &ez, const int &et)
+		                                      const int &ex, const int &ey, const int &ez, const int &et,
+											  T *converted = NULL)
 		{
 			size_t lx, ly, lz, lt, total, toRead, dBytes;
 			lx = ((ex == -1) ? nx() : ex) - sx;
@@ -460,26 +460,26 @@ class NiftiImage
 				}
 				ly = 1;
 			}
-			
+						
 			char *raw = new char[total * dBytes];
 			char *nextRead = raw;
 			for (int t = st; t < st+lt; t++)
 			{
-				size_t tOff = t * voxelsPerVolume() * dBytes;
+				size_t tOff = t * voxelsPerVolume();
 				for (int z = sz; z < sz+lz; z++)
 				{
-					size_t zOff = z * voxelsPerSlice() * dBytes;
+					size_t zOff = z * voxelsPerSlice();
 					for (int y = sy; y < sy+ly; y++)
 					{
-						size_t yOff = y * nx() * dBytes;
-						if (readBytes(tOff + zOff + yOff, toRead, nextRead))
+						size_t yOff = y * nx();
+						if (readBytes((tOff + zOff + yOff) * dBytes, toRead, nextRead))
 							nextRead += toRead;
 						else
-							NIFTI_FAIL("failed.");
+							NIFTI_FAIL("failed to read subvolume from file.");
 					}
 				}
 			}
-			T *converted = convertFromBytes<T>(raw, total);
+			converted = convertFromBytes<T>(raw, total, converted);
 			delete[] raw;
 			return converted;
 		}

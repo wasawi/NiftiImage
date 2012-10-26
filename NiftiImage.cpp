@@ -1242,62 +1242,29 @@ size_t NiftiImage::write(const void *buff, size_t size, size_t nmemb)
 
 long NiftiImage::seek(long offset, int whence)
 {
-	long newpos, currpos;
+	if (_mode == NIFTI_CLOSED)	// Seek is private, so this should not happen
+		NIFTI_FAIL("Cannot seek in a closed file.");
+	long newpos, currpos, error;
 	if (_gz)
 		currpos = gztell(_file.zipped);
 	else
 		currpos = ftell(_file.unzipped);
-	if (_mode == NIFTI_READ) {
-		if (whence == SEEK_SET)
-			newpos = offset;
-		else if (whence == SEEK_CUR)
-			newpos = currpos + offset;
-		else
-		{
-			std::cerr << "NiftiImage: Reading with SEEK_END is not implemented." << std::endl;
-			exit(EXIT_FAILURE);
-		}
-		
-		if (newpos < _voxoffset)
-		{
-			std::cerr << "NiftiImage: Attempted to seek into the header while reading from " << _imgname << "." << std::endl;
-			exit(EXIT_FAILURE);
-		}
-	} else if (_mode == NIFTI_WRITE) {
-		if (whence == SEEK_SET)
-			newpos = offset;
-		else if (whence == SEEK_CUR)
-			newpos = currpos + offset;
-		else
-		{
-			std::cerr << "NiftiImage: Writing with SEEK_END is not implemented." << std::endl;
-			exit(EXIT_FAILURE);
-		}
-		
-		if (newpos < _voxoffset)
-		{
-			std::cerr << "NiftiImage: Attempted to seek into the header while writing to " << _imgname << "." << std::endl;
-			exit(EXIT_FAILURE);
-		}
-		else if (_gz && newpos < currpos)
-		{
-			std::cerr << "NiftiImage: Cannot seek backwards while writing a file with libz." << std::endl;
-			exit(EXIT_FAILURE);
-		}
-	} else {
-		std::cerr << "NiftiImage: Cannot seek in a closed file." << std::endl;
-		exit(EXIT_FAILURE);
-	}
-	long error;
-	if (_gz) {
+	if (whence == SEEK_SET)
+		newpos = offset;
+	else if (whence == SEEK_CUR)
+		newpos = currpos + offset;
+	else
+		NIFTI_FAIL("Reading with SEEK_END is not implemented.");
+	if (newpos == currpos)
+		return 0;	// No need to seek
+	if (newpos < _voxoffset)
+		NIFTI_FAIL("Attempted to seek into the header of file " + _imgname);
+	if (_gz && (_mode == NIFTI_WRITE) && (newpos < currpos))
+		NIFTI_FAIL("Cannot seek backwards while writing a file with libz.");
+	if (_gz)
 		error = gzseek(_file.zipped, offset, whence);
-		currpos = gztell(_file.zipped);
-	} else {
+	else
 		error = fseek(_file.unzipped, offset, whence);
-		currpos = ftell(_file.unzipped);
-	}
-	if (currpos != newpos)
-		NIFTI_ERROR("Seek moved to an unexpected location");
 	return error;
 }
 
@@ -1616,7 +1583,7 @@ void NiftiImage::writeHeader(std::string path)
 		_file.unzipped = fopen(_hdrname.c_str(), "wb");
 		
 	if(!_file.zipped)
-		NIFTI_FAIL("NiftiImage: Cannot open header file " + _hdrname + " for writing.");
+		NIFTI_FAIL("Cannot open header file " + _hdrname + " for writing.");
 	
 	/* write the header and extensions */
 	size_t bytesWritten;
@@ -1628,7 +1595,7 @@ void NiftiImage::writeHeader(std::string path)
 	//if( nim->nifti_type != NIFTI_FTYPE_ANALYZE )
 	//	(void)nifti_write_extensions(fp,nim);
 	if(bytesWritten < sizeof(nhdr)) {
-		std::cerr << "NiftiImage: Could not write header to file " << _hdrname << "." << std::endl;
+		std::cerr << "Could not write header to file " << _hdrname << "." << std::endl;
 		exit(EXIT_FAILURE);
 	}
 	if (_hdrname != _imgname)
