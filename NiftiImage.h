@@ -488,7 +488,7 @@ class NiftiImage
 		{
 			char *raw =	readBytes(0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
 			T *converted = convertFromBytes<T>(raw, voxelsTotal());
-			free(raw);
+			delete[] raw;
 			return converted;
 		}
 		
@@ -497,14 +497,14 @@ class NiftiImage
 			size_t bytesPerVolume = voxelsPerVolume() * DataTypes.find(_datatype)->second.size;
 			char *converted = convertToBytes<T>(data, voxelsPerVolume());
 			writeBytes(converted, vol * bytesPerVolume, bytesPerVolume);
-			free(converted);
+			delete[] converted;
 		}
 		
 		template<typename T> void writeAllVolumes(T *data)
 		{
 			char *converted = convertToBytes<T>(data, voxelsTotal());
 			writeBytes(converted, 0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
-			free(converted);
+			delete[] converted;
 		}
 };
 #endif /* _NIFTI_IO_HEADER_ */
