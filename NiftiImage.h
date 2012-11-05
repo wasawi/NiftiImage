@@ -104,10 +104,8 @@ typedef struct {
 /*--------------- Prototypes of functions defined in this file --------------*/
 
 int    disp_nifti_1_header(const char * info, const nifti_1_header * hp ) ;
-void   nifti_set_debug_level( int level ) ;
 void   nifti_set_skip_blank_ext( int skip ) ;
 void   nifti_set_allow_upper_fext( int allow ) ;
-int nifti_short_order(void) ;              /* CPU byte order */
 
 /*--------------------- Low level IO routines ------------------------------*/
 /* other routines */
@@ -173,19 +171,12 @@ http://brainvis.wustl.edu/wiki
 
 #define NIFTI_MAX_ECODE             30  /******* maximum extension code *******/
 
-#undef  MSB_FIRST
-#undef  LSB_FIRST
-#undef  REVERSE_ORDER
-#define LSB_FIRST 1
-#define MSB_FIRST 2
-#define REVERSE_ORDER(x) (3-(x))    /* convert MSB_FIRST <--> LSB_FIRST */
-
 #define LNI_MAX_NIA_EXT_LEN 100000  /* consider a longer extension invalid */
 
 /*! NIfTI header class */
 
-#define NIFTI_ERROR( err ) std::cerr << __PRETTY_FUNCTION__ << ": " << ( err ) << std::endl;
-#define NIFTI_FAIL( err ) { NIFTI_ERROR( err ); exit(EXIT_FAILURE); }
+#define NIFTI_ERROR( err ) do { std::cerr << __PRETTY_FUNCTION__ << ": " << ( err ) << std::endl; } while(0)
+#define NIFTI_FAIL( err ) do { NIFTI_ERROR( err ); exit(EXIT_FAILURE); } while(0)
 
 class NiftiImage
 {
@@ -208,13 +199,14 @@ class NiftiImage
 		static const StringMap Units, Transforms, Intents, SliceOrders;
 		static const bool validDatatype(const int dtype);
 		
-		int _dim[8];               /*!< number of voxels = nx*ny*nz*...*nw   */
-		float _voxdim[8];
-		Affine3d _qform, _sform;
+		int _dim[8];               //!< Number of voxels = nx*ny*nz*...*nw
+		float _voxdim[8];          //!< Dimensions of each voxel
+		Affine3d _qform, _sform;   //!< Tranformation matrices from voxel indices to physical co-ords
 		
-		std::string _basename, _imgname, _hdrname;     /* Paths to header and image files*/
-		int _voxoffset, _byteorder; /* Offset and byte swap info */
-		int _datatype;                      /* Datatype on disk */
+		std::string _basename, _imgname, _hdrname; // Paths to header and image files
+		int _voxoffset;
+		int _datatype;                             // Datatype on disk
+		int _swap;                                 // True if byte order on disk is different to CPU
 		int _num_ext;
 		nifti1_extension *_ext_list;
 		char _mode;
