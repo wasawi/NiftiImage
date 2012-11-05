@@ -2,6 +2,7 @@
  \brief Declaration for NiftiImage class
  - Written by Tobias Wood, IoP KCL
  - Based on nifti1_io.h (Thanks to Robert Cox et al)
+ - This code is released to the public domain. Do with it what you will.
  */
 #ifndef _NIFTI_IO_HEADER_3
 #define _NIFTI_IO_HEADER_3
@@ -36,14 +37,6 @@ typedef enum _analyze75_orient_code {
 	a75_sagittal_flipped = 5,
 	a75_orient_unknown = 6
 } analyze_75_orient_code;
-
-/* struct for return from nifti_image_read_bricks() */
-typedef struct {
-	int       nbricks;    /* the number of allocated pointers in 'bricks' */
-	size_t    bsize;      /* the length of each data block, in bytes      */
-	void   ** bricks;     /* array of pointers to data blocks             */
-} nifti_brick_list;
-
 
 /*****************************************************************************/
 /*------------------ NIfTI version of ANALYZE 7.5 structure -----------------*/
@@ -109,41 +102,12 @@ typedef struct {
 
 /*****************************************************************************/
 /*--------------- Prototypes of functions defined in this file --------------*/
-const char *nifti_units_string      ( int uu ) ;
-const char *nifti_intent_string     ( int ii ) ;
-const char *nifti_xform_string      ( int xx ) ;
-const char *nifti_slice_string      ( int ss ) ;
-const char *nifti_orientation_string( int ii ) ;
-
-int   nifti_is_inttype(int dt);
-void  nifti_swap_bytes(size_t n, int siz, void *ar);
-
-void  swap_nifti_header ( struct nifti_1_header *h , int is_nifti ) ;
-int   nifti_swap_as_analyze( nifti_analyze75 *h );
-
-
-void nifti_disp_lib_hist( void ) ;     /* to display library history */
-void nifti_disp_lib_version( void ) ;  /* to display library version */
-int nifti_disp_matrix_orient( const char * mesg, Matrix4d mat );
-int nifti_disp_type_list( int which );
 
 int    disp_nifti_1_header(const char * info, const nifti_1_header * hp ) ;
 void   nifti_set_debug_level( int level ) ;
 void   nifti_set_skip_blank_ext( int skip ) ;
 void   nifti_set_allow_upper_fext( int allow ) ;
 int nifti_short_order(void) ;              /* CPU byte order */
-
-
-/* Orientation codes that might be returned from nifti_mat44_to_orientation().*/
-
-#define NIFTI_L2R  1    /* Left to Right         */
-#define NIFTI_R2L  2    /* Right to Left         */
-#define NIFTI_P2A  3    /* Posterior to Anterior */
-#define NIFTI_A2P  4    /* Anterior to Posterior */
-#define NIFTI_I2S  5    /* Inferior to Superior  */
-#define NIFTI_S2I  6    /* Superior to Inferior  */
-
-void nifti_matrix4d_to_orientation( Matrix4d R , int *icod, int *jcod, int *kcod ) ;
 
 /*--------------------- Low level IO routines ------------------------------*/
 /* other routines */
@@ -209,13 +173,6 @@ http://brainvis.wustl.edu/wiki
 
 #define NIFTI_MAX_ECODE             30  /******* maximum extension code *******/
 
-/* nifti_type file codes */
-#define NIFTI_FTYPE_ANALYZE   0
-#define NIFTI_FTYPE_NIFTI1_1  1
-#define NIFTI_FTYPE_NIFTI1_2  2
-#define NIFTI_FTYPE_ASCII     3
-#define NIFTI_MAX_FTYPE       3    /* this should match the maximum code */
-
 #undef  MSB_FIRST
 #undef  LSB_FIRST
 #undef  REVERSE_ORDER
@@ -227,26 +184,33 @@ http://brainvis.wustl.edu/wiki
 
 /*! NIfTI header class */
 
-enum NIFTIIMAGE_MODES
-{
-	NIFTI_CLOSED = 0,
-	NIFTI_READ = 'r',
-	NIFTI_WRITE = 'w'
-};
-
-struct NiftiDataTypeInfo
-{
-	int size, swapsize;
-	std::string name;
-};
-typedef std::map<int, NiftiDataTypeInfo> DTMap;
+#define NIFTI_ERROR( err ) std::cerr << __PRETTY_FUNCTION__ << ": " << ( err ) << std::endl;
+#define NIFTI_FAIL( err ) { NIFTI_ERROR( err ); exit(EXIT_FAILURE); }
 
 class NiftiImage
 {
 	private:
-		int _dim[8], _nvox;               /*!< number of voxels = nx*ny*nz*...*nw   */
+
+		struct NiftiDataTypeInfo {
+			int size, swapsize;
+			std::string name;
+		};
+		
+		union ZFile {
+			FILE *unzipped;
+			gzFile zipped;
+		};
+		
+		typedef std::map<int, NiftiDataTypeInfo> DTMap;
+		typedef std::map<int, std::string> StringMap;
+		
+		static const DTMap DataTypes;
+		static const StringMap Units, Transforms, Intents, SliceOrders;
+		static const bool validDatatype(const int dtype);
+		
+		int _dim[8];               /*!< number of voxels = nx*ny*nz*...*nw   */
 		float _voxdim[8];
-		Affine3d _qform, _sform, _inverse;
+		Affine3d _qform, _sform;
 		
 		std::string _basename, _imgname, _hdrname;     /* Paths to header and image files*/
 		int _voxoffset, _byteorder; /* Offset and byte swap info */
@@ -255,9 +219,7 @@ class NiftiImage
 		nifti1_extension *_ext_list;
 		char _mode;
 		bool _gz;
-		
-		FILE *_file;
-		gzFile _gzFile;
+		ZFile _file;
 		
 		void setFilenames(const std::string &filename);
 		static int needs_swap(short dim0, int hdrsize);
@@ -268,145 +230,146 @@ class NiftiImage
 		long seek(long offset, int whence);
 		int rewind();
 		
+		static void SwapBytes(size_t n, int siz, void *ar);
+		static void SwapNiftiHeader(struct nifti_1_header *h);
+		static void SwapAnalyzeHeader(nifti_analyze75 *h);
+		
 		void readHeader(std::string path);
 		void writeHeader(std::string path);
-		void *readBuffer(size_t start, size_t length);
-		void writeBuffer(void *buffer, size_t start, size_t length);
-		template<typename T> T *convertBuffer(const void *raw, const size_t bufferSize)
+		char *readBytes(size_t start, size_t length, char *buffer = NULL);
+		void writeBytes(char *buffer, size_t start, size_t length);
+
+		/**
+		  *   Internal function to convert the internal NIfTI data to the desired dataype.
+		  *
+		  *   Converts a sequence of bytes from a NIfTI image to the templated datatype.
+		  *   @param T Desired datatype. Valid (scalar) conversions must exist.
+		  *   @param bytes Pointer to the NIfTI data
+		  *   @param nEl Number of elements (not bytes) in the data
+		  *   @param data Pointer to the storage for the converted data. If NULL then
+		  *          storage is allocated internally and a pointer returned.
+		  *   @return Pointer to the converted data.
+		  */
+		template<typename T> T* convertFromBytes(const char *bytes, const size_t nEl, T *data = NULL)
 		{
-			T *converted = (T *)malloc(bufferSize * sizeof(T));
-			for (int i = 0; i < bufferSize; i++) {
+			if (!data)
+				data = new T[nEl];
+			for (int i = 0; i < nEl; i++) {
 				switch (_datatype) {
+					case NIFTI_TYPE_INT8:      data[i] = (T)((char *)bytes)[i]; break;
+					case NIFTI_TYPE_UINT8:     data[i] = (T)((unsigned char *)bytes)[i]; break;
+					case NIFTI_TYPE_INT16:     data[i] = (T)((short *)bytes)[i]; break;
+					case NIFTI_TYPE_UINT16:    data[i] = (T)((unsigned short *)bytes)[i]; break;
+					//case NIFTI_TYPE_RGB24:     break ;
+					//case NIFTI_TYPE_RGBA32:    break ;
+					case NIFTI_TYPE_INT32:     data[i] = (T)((int *)bytes)[i]; break;
+					case NIFTI_TYPE_UINT32:    data[i] = (T)((unsigned int *)bytes)[i]; break;
+					case NIFTI_TYPE_FLOAT32:   data[i] = (T)((float *)bytes)[i]; break;
+					case NIFTI_TYPE_FLOAT64:   data[i] = (T)((double *)bytes)[i]; break;
+					case NIFTI_TYPE_INT64:     data[i] = (T)((long *)bytes)[i]; break;
+					case NIFTI_TYPE_UINT64:    data[i] = (T)((unsigned long *)bytes)[i]; break;
+					case NIFTI_TYPE_FLOAT128:  data[i] = (T)((long double *)bytes)[i]; break;
+						
 					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
 					// should be interchangeable even at pointer level, so the following
 					// should work.
-					case NIFTI_TYPE_INT8:      converted[i] = (T)((char *)raw)[i]; break;
-					case NIFTI_TYPE_UINT8:     converted[i] = (T)((unsigned char *)raw)[i]; break;
-					case NIFTI_TYPE_INT16:     converted[i] = (T)((short *)raw)[i]; break;
-					case NIFTI_TYPE_UINT16:    converted[i] = (T)((unsigned short *)raw)[i]; break;
-						
-					case NIFTI_TYPE_RGB24:     break ;
-					case NIFTI_TYPE_RGBA32:    break ;
-						
-					case NIFTI_TYPE_INT32:     converted[i] = (T)((int *)raw)[i]; break;
-					case NIFTI_TYPE_UINT32:    converted[i] = (T)((unsigned int *)raw)[i]; break;
-					
-					case NIFTI_TYPE_FLOAT32:   converted[i] = (T)((float *)raw)[i]; break;
-					//case DT_COMPLEX64: converted[i] = (T)((std::complex<float> *)raw)[i]; break;
-						
-					case NIFTI_TYPE_FLOAT64:   converted[i] = (T)((double *)raw)[i]; break;
-					case NIFTI_TYPE_INT64:     converted[i] = (T)((long *)raw)[i]; break;
-					case NIFTI_TYPE_UINT64:    converted[i] = (T)((unsigned long *)raw)[i]; break;
-						
-					case NIFTI_TYPE_FLOAT128:  converted[i] = (T)((long double *)raw)[i]; break;
-						
-					//case DT_COMPLEX128: converted[i] = (T)((std::complex<double> *)raw)[i]; break;
-						
-					//case DT_COMPLEX256: converted[i] = (T)((std::complex<long double> *)raw)[i]; break;
+					//case DT_COMPLEX64: data[i] = (T)((std::complex<float> *)bytes)[i]; break;
+					//case DT_COMPLEX128: data[i] = (T)((std::complex<double> *)bytes)[i]; break;
+					//case DT_COMPLEX256: data[i] = (T)((std::complex<long double> *)bytes)[i]; break;
+					default: NIFTI_FAIL("unknown datatype"); break;
 				}
 			}
-			return converted;
+			return data;
 		}
-		template<typename T> void *convertToBuffer(const T *raw, const size_t bufferSize)
+
+		/**
+		  *   Internal function to convert data to the internal NIfTI datatype.
+		  *
+		  *   Converts from the templated type to a sequence of bytes suitable for writing to a NIfTI image.
+		  *   @param data Pointer to the data.
+		  *   @param T Desired datatype. Valid (scalar) conversions must exist.
+		  *   @param nEl Number of elements (not bytes) in the data
+		  *   @param bytes Pointer to the NIfTI data. If NULL then storage is
+		  *          allocated internally and a pointer returned.
+		  *   @return Pointer to the data stored in a byte array.
+		  */
+		template<typename T> char *convertToBytes(const T *data, const size_t nEl, char *bytes = NULL)
 		{
-			void *converted = malloc(DTypes.find(_datatype)->second.size * bufferSize);
-			for (int i = 0; i < bufferSize; i++) {
+			if (!bytes)
+				bytes = new char[nEl * DataTypes.find(_datatype)->second.size];
+			
+			for (int i = 0; i < nEl; i++) {
 				switch (_datatype) {
+					case NIFTI_TYPE_INT8:              ((char *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_UINT8:    ((unsigned char *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_INT16:            ((short *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_UINT16:  ((unsigned short *)bytes)[i] = data[i]; break;
+					//case NIFTI_TYPE_RGB24:     break ;
+					//case NIFTI_TYPE_RGBA32:    break ;
+					case NIFTI_TYPE_INT32:              ((int *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_UINT32:    ((unsigned int *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_FLOAT32:          ((float *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_FLOAT64:         ((double *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_INT64:             ((long *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_UINT64:   ((unsigned long *)bytes)[i] = data[i]; break;
+					case NIFTI_TYPE_FLOAT128:   ((long double *)bytes)[i] = data[i]; break;
 					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
 					// should be interchangeable even at pointer level, so the following
 					// should work.
-					case NIFTI_TYPE_INT8:      ((char *)converted)[i] =          raw[i]; break;
-					case NIFTI_TYPE_UINT8:     ((unsigned char *)converted)[i] =  raw[i]; break;
-					case NIFTI_TYPE_INT16:     ((short *)converted)[i] =          raw[i]; break;
-					case NIFTI_TYPE_UINT16:    ((unsigned short *)converted)[i] = raw[i]; break;
-						
-					case NIFTI_TYPE_RGB24:     break ;
-					case NIFTI_TYPE_RGBA32:    break ;
-						
-					case NIFTI_TYPE_INT32:     ((int *)converted)[i] =          raw[i]; break;
-					case NIFTI_TYPE_UINT32:    ((unsigned int *)converted)[i] = raw[i]; break;
-					
-					case NIFTI_TYPE_FLOAT32:   ((float *)converted)[i] =        raw[i]; break;
-					//case DT_COMPLEX64: converted[i] = (T)((std::complex<float> *)raw)[i]; break;
-						
-					case NIFTI_TYPE_FLOAT64:   ((double *)converted)[i] =        raw[i]; break;
-					case NIFTI_TYPE_INT64:     ((long *)converted)[i] =          raw[i]; break;
-					case NIFTI_TYPE_UINT64:    ((unsigned long *)converted)[i] = raw[i]; break;
-						
-					case NIFTI_TYPE_FLOAT128:  ((long double *)converted)[i] =   raw[i]; break;
-						
-					//case DT_COMPLEX128: converted[i] = (T)((std::complex<double> *)raw)[i]; break;
-						
-					//case DT_COMPLEX256: converted[i] = (T)((std::complex<long double> *)raw)[i]; break;
+					//case DT_COMPLEX64: bytes[i] = (T)((std::complex<float> *)data)[i]; break;
+					//case DT_COMPLEX128: bytes[i] = (T)((std::complex<double> *)data)[i]; break;
+					//case DT_COMPLEX256: bytes[i] = (T)((std::complex<long double> *)data)[i]; break;
+					default: NIFTI_FAIL("unknown datatype"); break;
 				}
 			}
-			return converted;
+			return bytes;
 		}
-		static const DTMap DTypes;
-		static const std::string &DTypeToString(const int dtype);
-		static const bool DTypeIsValid(const int dtype);
+		
 	public:
+		/*
+		 *  Used when opening a NiftiImage to specify read or write. NiftiImages
+		 *  can only be open for either reading or writing at any one time, and
+		 *  must be closed before re-opening.
+		 */
+		enum NIFTIIMAGE_MODES
+		{
+			NIFTI_CLOSED = 0,
+			NIFTI_READ = 'r',
+			NIFTI_WRITE = 'w'
+		};
+		
 		~NiftiImage();
 		NiftiImage();
 		NiftiImage(const NiftiImage &clone);
 		NiftiImage(const int nx, const int ny, const int nz, const int nt,
 		           const float dx, const float dy, const float dz, const float dt,
 				   const int datatype);
-		NiftiImage(const std::string filename);
-		
+		NiftiImage(const std::string &filename, const char &mode);
+		NiftiImage &operator=(const NiftiImage &other);
 		static void printDTypeList();
 		
-		bool open(std::string filename, char mode);
+		bool open(const std::string &filename, const char &mode);
 		void close();
 		const std::string &basename();
-		void *readRawVolume(const int vol);
-		void *readRawAllVolumes();
-		template<typename T> T *readVolume(const int vol)
-		{
-			size_t bytesPerVolume = voxelsPerVolume() *
-			                        DTypes.find(_datatype)->second.size;
-			void *raw = readBuffer(vol * bytesPerVolume, bytesPerVolume);
-			T *converted = convertBuffer<T>(raw, voxelsPerVolume());
-			free(raw);
-			return converted;
-		}
-		
-		template<typename T> T *readAllVolumes()
-		{
-			void *raw =	readBuffer(0, nvox() * DTypes.find(_datatype)->second.size);
-			T *converted = convertBuffer<T>(raw, nvox());
-			free(raw);
-			return converted;
-		}
-		
-		template<typename T> void writeVolume(const int vol, T *data)
-		{
-			size_t bytesPerVolume = voxelsPerVolume() * DTypes.find(_datatype)->second.size;
-			void *converted = convertToBuffer<T>(data, voxelsPerVolume());
-			writeBuffer(converted, vol * bytesPerVolume, bytesPerVolume);
-			free(converted);
-		}
-		
-		template<typename T> void writeAllVolumes(T *data)
-		{
-			void *converted = convertBuffer<T>(data, nvox());
-			writeBuffer(converted, 0, nvox() * DTypes.find(_datatype)->second.size);
-			free(converted);
-		}
+		char *readRawVolume(const int vol);
+		char *readRawAllVolumes();
 		
 		int ndim() const;
 		int nx() const;
 		int ny() const;
 		int nz() const;
 		int nt() const;
+		int voxelsPerSlice() const;
 		int voxelsPerVolume() const;
-		int nvox() const;
+		int voxelsTotal() const;
 		void setnt(const int nt);
 		void setDims(int nx, int ny, int nz, int nt);
 		
 		int datatype() const;
 		void setDatatype(const int dt);
-		
+		bool compatible(const NiftiImage &other) const; //!< Check if voxel dimensions, data size and transform match
+		bool voxelsCompatible(const NiftiImage &other) const; //!< Looser check if voxel dimensions and data size match
+		void checkCompatible(const NiftiImage &other) const; //!< Exits program if headers do not match
 		float dx() const;
 		float dy() const;
 		float dz() const;
@@ -430,29 +393,166 @@ class NiftiImage
 		const Matrix4d &ijk_to_xyz() const;
 		const Matrix4d &xyz_to_ijk() const;
 		
-		int freq_dim ;               /*!< indexes (1,2,3, or 0) for MRI    */
-		int phase_dim;               /*!< directions in dim[]/pixdim[]     */
-		int slice_dim;               /*!< directions in dim[]/pixdim[]     */
+		int freq_dim ;                //!< indexes (1,2,3, or 0) for MRI
+		int phase_dim;                //!< directions in dim[]/pixdim[]
+		int slice_dim;                //!< directions in dim[]/pixdim[]
 		
-		int   slice_code;             /*!< code for slice timing pattern    */
-		int   slice_start;            /*!< index for start of slices        */
-		int   slice_end;              /*!< index for end of slices          */
-		float slice_duration;         /*!< time between individual slices   */
-		float toffset;                /*!< time coordinate offset */
+		int   slice_code;             //!< code for slice timing pattern
+		int   slice_start;            //!< index for start of slices
+		int   slice_end;              //!< index for end of slices
+		float slice_duration;         //!< time between individual slices
+		float toffset;                //!< time coordinate offset
 	
-		int xyz_units;                /*!< dx,dy,dz units: NIFTI_UNITS_* code  */
-		int time_units;               /*!< dt       units: NIFTI_UNITS_* code  */
-		int   intent_code ;           /*!< statistic type (or something)       */
-		float intent_p1 ;             /*!< intent parameters                   */
-		float intent_p2 ;             /*!< intent parameters                   */
-		float intent_p3 ;             /*!< intent parameters                   */
-		std::string intent_name;      /*!< optional description of intent data */
-	
-		std::string description;      /*!< optional text to describe dataset   */
-		std::string aux_file;         /*!< auxiliary filename                  */
+		int xyz_units;                //!< dx,dy,dz units: NIFTI_UNITS_* code
+		int time_units;               //!< dt       units: NIFTI_UNITS_* code
+		int   intent_code ;           //!< statistic type (or something)
+		float intent_p1 ;             //!< intent parameters
+		float intent_p2 ;             //!< intent parameters
+		float intent_p3 ;             //!< intent parameters
+		std::string intent_name;      //!< optional description of intent data
+		std::string description;      //!< optional text to describe dataset
+		std::string aux_file;         //!< auxiliary filename
 		
-		int                num_ext ;  /*!< number of extensions in ext_list       */
-		nifti1_extension * ext_list ; /*!< array of extension structs (with data) */
-		analyze_75_orient_code analyze75_orient; /*!< for old analyze files, orient */
+		int                num_ext ;  //!< number of extensions in ext_list
+		nifti1_extension * ext_list ; //!< array of extension structs (with data)
+		analyze_75_orient_code analyze75_orient; //!< for old analyze files, orient
+		
+		const std::string &dtypeName() const;
+		const std::string &spaceUnits() const;
+		const std::string &timeUnits() const;
+		const std::string &intentName() const;
+		const std::string &transformName() const;
+		const std::string &sliceName() const;
+		
+		template<typename T> T *readVolume(const int &vol, T *converted = NULL)
+		{
+			size_t bytesPerVolume = voxelsPerVolume() *
+			                        DataTypes.find(_datatype)->second.size;
+			char *raw = readBytes(vol * bytesPerVolume, bytesPerVolume);
+			converted = convertFromBytes<T>(raw, voxelsPerVolume(), converted);
+			delete[] raw;
+			return converted;
+		}
+		
+		template<typename T> T *readAllVolumes()
+		{
+			char *raw =	readBytes(0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
+			T *converted = convertFromBytes<T>(raw, voxelsTotal());
+			delete[] raw;
+			return converted;
+		}
+		
+		template<typename T> T *readSubvolume(const int &sx, const int &sy, const int &sz, const int &st,
+		                                      const int &ex, const int &ey, const int &ez, const int &et,
+											  T *converted = NULL)
+		{
+			size_t lx, ly, lz, lt, total, toRead, dBytes;
+			lx = ((ex == -1) ? nx() : ex) - sx;
+			ly = ((ey == -1) ? ny() : ey) - sy;
+			lz = ((ez == -1) ? nz() : ez) - sz;
+			lt = ((et == -1) ? nt() : et) - st;
+			total = lx * ly * lz * lt;
+			dBytes = DataTypes.find(_datatype)->second.size;
+			
+			// Collapse successive full dimensions into a single compressed read
+			toRead = lx * dBytes;
+			if (lx == nx()) {
+				toRead *= ly;
+				if (ly == ny()) {
+					toRead *= lz;
+					if (lz == nz()) {
+						// If we've got to here we're actual reading the whole image
+						toRead *= lt;
+						lt = 1;
+					}
+					lz = 1;
+				}
+				ly = 1;
+			}
+						
+			char *raw = new char[total * dBytes];
+			char *nextRead = raw;
+			for (int t = st; t < st+lt; t++)
+			{
+				size_t tOff = t * voxelsPerVolume();
+				for (int z = sz; z < sz+lz; z++)
+				{
+					size_t zOff = z * voxelsPerSlice();
+					for (int y = sy; y < sy+ly; y++)
+					{
+						size_t yOff = y * nx();
+						if (readBytes((tOff + zOff + yOff) * dBytes, toRead, nextRead))
+							nextRead += toRead;
+						else
+							NIFTI_FAIL("failed to read subvolume from file.");
+					}
+				}
+			}
+			converted = convertFromBytes<T>(raw, total, converted);
+			delete[] raw;
+			return converted;
+		}
+		
+		template<typename T> void writeVolume(const int vol, T *data)
+		{
+			size_t bytesPerVolume = voxelsPerVolume() * DataTypes.find(_datatype)->second.size;
+			char *converted = convertToBytes<T>(data, voxelsPerVolume());
+			writeBytes(converted, vol * bytesPerVolume, bytesPerVolume);
+			delete[] converted;
+		}
+		
+		template<typename T> void writeAllVolumes(T *data)
+		{
+			char *converted = convertToBytes<T>(data, voxelsTotal());
+			writeBytes(converted, 0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
+			delete[] converted;
+		}
+		
+		template<typename T> void writeSubvolume(const int &sx, const int &sy, const int &sz, const int &st,
+												 const int &ex, const int &ey, const int &ez, const int &et,
+											     T *data)
+		{
+			size_t lx, ly, lz, lt, total, toWrite, dBytes;
+			lx = ((ex == -1) ? nx() : ex) - sx;
+			ly = ((ey == -1) ? ny() : ey) - sy;
+			lz = ((ez == -1) ? nz() : ez) - sz;
+			lt = ((et == -1) ? nt() : et) - st;
+			total = lx * ly * lz * lt;
+			dBytes = DataTypes.find(_datatype)->second.size;
+			
+			// Collapse successive full dimensions into a single write
+			toWrite = lx * dBytes;
+			if (lx == nx()) {
+				toWrite *= ly;
+				if (ly == ny()) {
+					toWrite *= lz;
+					if (lz == nz()) {
+						// If we've got to here we're actual writing the whole image
+						toWrite *= lt;
+						lt = 1;
+					}
+					lz = 1;
+				}
+				ly = 1;
+			}
+						
+			char *raw = convertToBytes(data, total);
+			char *nextWrite = raw;
+			for (int t = st; t < st+lt; t++)
+			{
+				size_t tOff = t * voxelsPerVolume();
+				for (int z = sz; z < sz+lz; z++)
+				{
+					size_t zOff = z * voxelsPerSlice();
+					for (int y = sy; y < sy+ly; y++)
+					{
+						size_t yOff = y * nx();
+						writeBytes(nextWrite, (tOff + zOff + yOff) * dBytes, toWrite);
+						nextWrite += toWrite;
+					}
+				}
+			}
+			delete[] raw;
+		}
 };
 #endif /* _NIFTI_IO_HEADER_ */
