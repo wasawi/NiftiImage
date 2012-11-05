@@ -1011,20 +1011,10 @@ int disp_nifti_1_header( const char * info, const nifti_1_header * hp )
 //	return size;
 //}
 
-/*----------------------------------------------------------------------*/
-/*! get the byte order for this CPU
- 
- - LSB_FIRST means least significant byte, first (little endian)
- - MSB_FIRST means most significant byte, first (big endian)
- *//*--------------------------------------------------------------------*/
-int nifti_short_order(void)   /* determine this CPU's byte order */
+NiftiImage::~NiftiImage()
 {
-	union { unsigned char bb[2] ;
-		short         ss    ; } fred ;
-	
-	fred.bb[0] = 1 ; fred.bb[1] = 0 ;
-	
-	return (fred.ss == 1) ? LSB_FIRST : MSB_FIRST ;
+	if (_mode != NIFTI_CLOSED)
+		close();
 }
 
 NiftiImage::NiftiImage() :
@@ -1032,7 +1022,8 @@ NiftiImage::NiftiImage() :
 	_voxdim(),
 	_mode(NIFTI_CLOSED),
 	_gz(false),
-	_datatype(NIFTI_TYPE_FLOAT32)
+	_datatype(NIFTI_TYPE_FLOAT32),
+	_swap(false)
 {
 	_qform.setIdentity(); _sform.setIdentity();
 }
@@ -1240,6 +1231,10 @@ size_t NiftiImage::write(const void *buff, size_t size, size_t nmemb)
 	return fwrite(buff, size, nmemb, _file.unzipped);
 }
 
+/*  Seeks into a NIfTI file. Does some checking to ensure we are not seeking
+ *  into the header, or seeking backwards in GZipped file that we are writing
+ *  to, as Zlib doesn't support this but doesn't fail when you attempt it.
+ */
 long NiftiImage::seek(long offset, int whence)
 {
 	if (_mode == NIFTI_CLOSED)	// Seek is private, so this should not happen
@@ -1249,53 +1244,34 @@ long NiftiImage::seek(long offset, int whence)
 		currpos = gztell(_file.zipped);
 	else
 		currpos = ftell(_file.unzipped);
+	
+	// Work out where we are going to seek to.
 	if (whence == SEEK_SET)
 		newpos = offset;
 	else if (whence == SEEK_CUR)
 		newpos = currpos + offset;
-	else
-		NIFTI_FAIL("Reading with SEEK_END is not implemented.");
+	else {
+		if (_gz) {
+			gzseek(_file.zipped, 0, whence);
+			newpos = gztell(_file.zipped) - offset;
+		} else {
+			fseek(_file.unzipped, 0, whence);
+			newpos = ftell(_file.unzipped) - offset;
+		}
+	}
+	
 	if (newpos == currpos)
 		return 0;	// No need to seek
-	if (newpos < _voxoffset)
+	else if (newpos < _voxoffset)
 		NIFTI_FAIL("Attempted to seek into the header of file " + _imgname);
-	if (_gz && (_mode == NIFTI_WRITE) && (newpos < currpos))
+	else if (_gz && (_mode == NIFTI_WRITE) && (newpos < currpos))
 		NIFTI_FAIL("Cannot seek backwards while writing a file with libz.");
+	
 	if (_gz)
 		error = gzseek(_file.zipped, offset, whence);
 	else
 		error = fseek(_file.unzipped, offset, whence);
 	return error;
-}
-
-/*----------------------------------------------------------------------
- * check whether byte swapping is needed
- *
- * dim[0] should be in [0,7], and sizeof_hdr should be accurate
- *
- * \returns  > 0 : needs swap
- *             0 : does not need swap
- *           < 0 : error condition
- *----------------------------------------------------------------------*/
-int NiftiImage::needs_swap( short dim0, int hdrsize )
-{
-	short d0    = dim0;     /* so we won't have to swap them on the stack */
-	int   hsize = hdrsize;
-	
-	if( d0 != 0 ){     /* then use it for the check */
-		if( d0 > 0 && d0 <= 7 ) return 0;
-		
-		SwapBytes(1, 2, &d0);        /* swap? */
-		if( d0 > 0 && d0 <= 7 ) return 1;
-		
-		return -1;        /* bad, naughty d0 */
-	}
-	/* dim[0] == 0 should not happen, but could, so try hdrsize */
-	if( hsize == sizeof(nifti_1_header) ) return 0;
-	SwapBytes(1, 4, &hsize);     /* swap? */
-	if( hsize == sizeof(nifti_1_header) ) return 1;
-	
-	return -2;     /* bad, naughty hsize */
 }
 
 inline float NiftiImage::fixFloat(const float f)
@@ -1327,29 +1303,27 @@ void NiftiImage::readHeader(std::string path)
 	if (obj_read < 1)
 		NIFTI_FAIL("Could not read header structure from " + _hdrname);
 	
-	/**- check if we must swap bytes */
-	int doswap = needs_swap(nhdr.dim[0], nhdr.sizeof_hdr); /* swap data flag */
-	if(doswap < 0)
-	{
-		std::cerr << "Could not determine byte order of header " <<
-					 _hdrname << "." << std::endl;
-		if (_gz)
-			gzclose(_file.zipped);
-		else
-			fclose(_file.unzipped);
-		_file.unzipped = NULL;
-		return;
+	// Check if disk and CPU byte order match.
+	// The sizeof_hdr field should always be 352, as this is the size of a
+	// NIfTI-1 header
+	if (nhdr.sizeof_hdr != sizeof(nhdr)) {
+		SwapBytes(1, 4, &nhdr.sizeof_hdr);
+		if (nhdr.sizeof_hdr != sizeof(nhdr))
+			NIFTI_FAIL("Could not determine byte order of header " + _hdrname);
+		// If we didn't fail, then we need to swap the header (first swap sizeof back)
+		_swap = true;
+		SwapBytes(1, 4, &nhdr.sizeof_hdr);
 	}
 	
 	// Check the magic string is set to one of the possible NIfTI values,
 	// otherwise process as an ANALYZE file
-	int is_nifti = ((nhdr.magic[0]=='n' && nhdr.magic[3]=='\0') && 
+	int is_nifti = ((nhdr.magic[0]=='n' && nhdr.magic[3]=='\0') &&
                     (nhdr.magic[1]=='i' || nhdr.magic[1]=='+') &&
-                    (nhdr.magic[2]>='1' && nhdr.magic[2]<='9'))
-				   ? nhdr.magic[2]-'0' : 0;
-	if (doswap && is_nifti)
+                    (nhdr.magic[2]>='1' && nhdr.magic[2]<='9')) ? true : false;
+	
+	if (_swap && is_nifti)
 		SwapNiftiHeader(&nhdr);
-	else if (doswap)
+	else if (_swap)
 		SwapAnalyzeHeader((nifti_analyze75 *)&nhdr);
 	
 	if(nhdr.datatype == DT_BINARY || nhdr.datatype == DT_UNKNOWN  )
@@ -1365,10 +1339,6 @@ void NiftiImage::readHeader(std::string path)
 	/* (only values 0 or 1 seem rational, otherwise set to arbirary 1)   */
 	for(int i=nhdr.dim[0]+1; i < 8; i++)
 		if(nhdr.dim[i] != 1 && nhdr.dim[i] != 0) nhdr.dim[i] = 1 ;
-	
-	_byteorder = nifti_short_order();
-	if (doswap)
-		_byteorder = REVERSE_ORDER(_byteorder);
 	
 	/**- Set dimensions arrays */
 	for (int i = 0; i < 8; i++)
@@ -1653,13 +1623,10 @@ char *NiftiImage::readBytes(size_t start, size_t length, char *buffer)
 		obj_read = fread(buffer, length, 1, _file.unzipped);
 	
 	if (obj_read != 1)
-	{
 		NIFTI_ERROR("Read buffer returned wrong number of bytes.");
-		if (didAllocate) delete[] buffer;
-		return NULL;
-	}
+	
 	int swapsize = DataTypes.find(_datatype)->second.swapsize;
-	if (swapsize > 1 && _byteorder != nifti_short_order())
+	if (swapsize > 1 && _swap)
 		SwapBytes(length / swapsize, swapsize, buffer);
 	return buffer;
 }
@@ -1737,21 +1704,36 @@ bool NiftiImage::open(const std::string &filename, const char &mode)
 
 void NiftiImage::close()
 {
+	// If we've been writing subvolumes then we may not have written a complete file
+	// Write a single zero-byte at the end to persuade the OS to write a file of the
+	// correct size.
+	if (_mode == NIFTI_CLOSED) {
+		NIFTI_ERROR("file " + _basename + " is already closed.");
+		return;
+	}
+	seek(0, SEEK_END);
+	long correctEnd = (voxelsTotal() * DataTypes.find(_datatype)->second.size + _voxoffset);
+	char zero = 0;
 	if (_gz) {
+		long pos = gztell(_file.zipped);
+		if (pos < correctEnd) {
+			gzseek(_file.zipped, correctEnd - 1, SEEK_SET);
+			gzwrite(_file.zipped, &zero, 1);
+		}
 		gzflush(_file.zipped, Z_FINISH);
 		gzclose(_file.zipped);
 		_file.zipped = NULL;
 	} else {
+		long pos = ftell(_file.unzipped);
+		if (pos < correctEnd) {
+			fseek(_file.unzipped, correctEnd - 1, SEEK_SET);
+			fwrite(&zero, 1, 1, _file.unzipped);
+		}
 		fflush(_file.unzipped);
 		fclose(_file.unzipped);
 		_file.unzipped = NULL;
 	}
 	_mode = NIFTI_CLOSED;
-}
-
-NiftiImage::~NiftiImage()
-{
-	close();
 }
 
 int NiftiImage::ndim() const { return _dim[0]; }
