@@ -434,6 +434,14 @@ class NiftiImage
 			return converted;
 		}
 		
+		template<typename T> T *readAllVolumes()
+		{
+			char *raw =	readBytes(0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
+			T *converted = convertFromBytes<T>(raw, voxelsTotal());
+			delete[] raw;
+			return converted;
+		}
+		
 		template<typename T> T *readSubvolume(const int &sx, const int &sy, const int &sz, const int &st,
 		                                      const int &ex, const int &ey, const int &ez, const int &et,
 											  T *converted = NULL)
@@ -485,14 +493,6 @@ class NiftiImage
 			return converted;
 		}
 		
-		template<typename T> T *readAllVolumes()
-		{
-			char *raw =	readBytes(0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
-			T *converted = convertFromBytes<T>(raw, voxelsTotal());
-			delete[] raw;
-			return converted;
-		}
-		
 		template<typename T> void writeVolume(const int vol, T *data)
 		{
 			size_t bytesPerVolume = voxelsPerVolume() * DataTypes.find(_datatype)->second.size;
@@ -506,6 +506,53 @@ class NiftiImage
 			char *converted = convertToBytes<T>(data, voxelsTotal());
 			writeBytes(converted, 0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
 			delete[] converted;
+		}
+		
+		template<typename T> void writeSubvolume(const int &sx, const int &sy, const int &sz, const int &st,
+												 const int &ex, const int &ey, const int &ez, const int &et,
+											     T *data)
+		{
+			size_t lx, ly, lz, lt, total, toWrite, dBytes;
+			lx = ((ex == -1) ? nx() : ex) - sx;
+			ly = ((ey == -1) ? ny() : ey) - sy;
+			lz = ((ez == -1) ? nz() : ez) - sz;
+			lt = ((et == -1) ? nt() : et) - st;
+			total = lx * ly * lz * lt;
+			dBytes = DataTypes.find(_datatype)->second.size;
+			
+			// Collapse successive full dimensions into a single write
+			toWrite = lx * dBytes;
+			if (lx == nx()) {
+				toWrite *= ly;
+				if (ly == ny()) {
+					toWrite *= lz;
+					if (lz == nz()) {
+						// If we've got to here we're actual writing the whole image
+						toWrite *= lt;
+						lt = 1;
+					}
+					lz = 1;
+				}
+				ly = 1;
+			}
+						
+			char *raw = convertToBytes(data, total);
+			char *nextWrite = raw;
+			for (int t = st; t < st+lt; t++)
+			{
+				size_t tOff = t * voxelsPerVolume();
+				for (int z = sz; z < sz+lz; z++)
+				{
+					size_t zOff = z * voxelsPerSlice();
+					for (int y = sy; y < sy+ly; y++)
+					{
+						size_t yOff = y * nx();
+						writeBytes(nextWrite, (tOff + zOff + yOff) * dBytes, toWrite);
+						nextWrite += toWrite;
+					}
+				}
+			}
+			delete[] raw;
 		}
 };
 #endif /* _NIFTI_IO_HEADER_ */
