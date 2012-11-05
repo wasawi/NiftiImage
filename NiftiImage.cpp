@@ -1314,27 +1314,18 @@ void NiftiImage::readHeader(std::string path)
 		_file.zipped = gzopen(path.c_str(), "rb");
 	else
 		_file.unzipped = fopen(path.c_str(), "rb");
-	if (!_file.zipped) {
-		std::cerr << "Failed to open header from file: " << path << std::endl;
-		exit(EXIT_FAILURE);
-	}
+	if (!_file.zipped)
+		NIFTI_FAIL("Failed to open header from " + path);
 	
 	size_t obj_read;
 	if (_gz) {
-		size_t bytes_read = gzread(_file.zipped, &nhdr, sizeof(nhdr));  /* read the thing */
+		size_t bytes_read = gzread(_file.zipped, &nhdr, sizeof(nhdr));
 		obj_read = bytes_read / sizeof(nhdr);
 	}
 	else
 		obj_read = fread(&nhdr, sizeof(nhdr), 1, _file.unzipped);
-	if (obj_read < 1) {
-		std::cerr << "Could not read header structure from " << _hdrname << "." << std::endl;
-		if (_gz)
-			gzclose(_file.zipped);
-		else
-			fclose(_file.unzipped);
-		_file.unzipped = NULL;
-		return;
-	}
+	if (obj_read < 1)
+		NIFTI_FAIL("Could not read header structure from " + _hdrname);
 	
 	/**- check if we must swap bytes */
 	int doswap = needs_swap(nhdr.dim[0], nhdr.sizeof_hdr); /* swap data flag */
@@ -1819,27 +1810,41 @@ void NiftiImage::setDatatype(const int dt)
 		std::cerr << "NiftiImage: Attempted to set invalid datatype " << dt << std::endl;
 }
 
-bool NiftiImage::volumesCompatible(const NiftiImage &other) const
+bool NiftiImage::voxelsCompatible(const NiftiImage &other) const
 {
-	if ((nx() == other.nx()) &&
-	    (ny() == other.ny()) &&
-		(nz() == other.nz()) &&
-		(dx() == other.dx()) &&
-		(dy() == other.dy()) &&
-		(dz() == other.dz()) &&
-		(ijk_to_xyz() == other.ijk_to_xyz()))
-	{	// Then we have the same number of voxels, dimensions are the same,
+	if ((nx() == other.nx()) && (ny() == other.ny()) && (nz() == other.nz()) &&
+		(dx() == other.dx()) && (dy() == other.dy()) && (dz() == other.dz()))
+		// Voxel numbers and sizes match, can process on a volume basis
+		return true;
+	else
+		return false;
+}
+
+bool NiftiImage::compatible(const NiftiImage &other) const
+{
+	if (voxelsCompatible(other) &&
+	   ((ijk_to_xyz() - other.ijk_to_xyz()).norm() < (std::numeric_limits<double>::epsilon() * ijk_to_xyz().size())))
+		// Then we have the same number of voxels, dimensions are the same,
 	    // and get transformed to the same spatial locations.
 		return true;
-	}
 	else
-	{
-		std::cout << "NiftiImage: Headers are incompatible." << std::endl;
-		std::cout << "Header 1: " << nx() << " " << ny() << " " << nz() << " " << dx() << " " << dy() << " " << dz() << std::endl;
-		std::cout << ijk_to_xyz() << std::endl;
-		std::cout << "Header 2: " << other.nx() << " " << other.ny() << " " << other.nz() << " " << other.dx() << " " << other.dy() << " " << other.dz() << std::endl;
-		std::cout << other.ijk_to_xyz() << std::endl;
-		return false;
+		return false;	
+}
+
+void NiftiImage::checkCompatible(const NiftiImage &other) const
+{
+	if (!compatible(other)) {
+		std::stringstream message;
+		message << "volumes do not match." << std::endl
+		        << _basename << std::endl
+				<< "Image dims: " << nx() << " " << ny() << " " << nz()
+				<< " Voxel size: " << dx() << " " << dy() << " " << dz()
+				<< " Transform:" << std::endl << ijk_to_xyz() << std::endl
+				<< other._basename << std::endl
+				<< "Image dims: " << other.nx() << " " << other.ny() << " " << other.nz()
+				<< " Voxel size: " << other.dx() << " " << other.dy() << " " << other.dz()
+				<< " Transform:" << std::endl << other.ijk_to_xyz() << std::endl;
+		NIFTI_FAIL(message.str());
 	}
 }
 

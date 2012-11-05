@@ -367,8 +367,9 @@ class NiftiImage
 		
 		int datatype() const;
 		void setDatatype(const int dt);
-		bool volumesCompatible(const NiftiImage &other) const; //!< Check whether a volume from this header can be used in calculations with another header.
-		
+		bool compatible(const NiftiImage &other) const; //!< Check if voxel dimensions, data size and transform match
+		bool voxelsCompatible(const NiftiImage &other) const; //!< Looser check if voxel dimensions and data size match
+		void checkCompatible(const NiftiImage &other) const; //!< Exits program if headers do not match
 		float dx() const;
 		float dy() const;
 		float dz() const;
