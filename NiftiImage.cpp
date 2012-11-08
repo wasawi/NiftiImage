@@ -1509,10 +1509,9 @@ void NiftiImage::writeHeader(std::string path)
 	/* partial file exists, and errors have been printed, so ignore return */
 	//if( nim->nifti_type != NIFTI_FTYPE_ANALYZE )
 	//	(void)nifti_write_extensions(fp,nim);
-	if(bytesWritten < sizeof(nhdr)) {
-		std::cerr << "Could not write header to file " << _hdrname << "." << std::endl;
-		exit(EXIT_FAILURE);
-	}
+	if(bytesWritten < sizeof(nhdr))
+		NIFTI_FAIL("Could not write header to file " + _hdrname + ".");
+	
 	if (_hdrname != _imgname)
 	{	// Close header and open image file
 		if (_gz) {
@@ -1764,7 +1763,7 @@ void NiftiImage::setDatatype(const int dt)
 	}
     DTMap::const_iterator it = DataTypes.find(dt);
 	if (it == DataTypes.end())
-		NIFTI_ERROR("Attempted to set invalid datatype " + dt);
+		NIFTI_ERROR("Attempted to set invalid datatype.");
 	else
 		_datatype = it->second;
 }
