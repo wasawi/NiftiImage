@@ -175,29 +175,28 @@ http://brainvis.wustl.edu/wiki
 
 /*! NIfTI header class */
 
-#define NIFTI_ERROR( err ) do { std::cerr << __PRETTY_FUNCTION__ << ": " << ( err ) << std::endl; } while(0)
+#define NIFTI_ERROR( err ) do { std::cerr << __PRETTY_FUNCTION__ << ": " << ( err ) << std::flush << std::endl; } while(0)
 #define NIFTI_FAIL( err ) do { NIFTI_ERROR( err ); exit(EXIT_FAILURE); } while(0)
 
 class NiftiImage
 {
 	private:
 
-		struct NiftiDataTypeInfo {
-			int size, swapsize;
+		struct NiftiDataType {
+			int code, size, swapsize;
 			std::string name;
 		};
+		typedef std::map<int, NiftiDataType> DTMap;
+		typedef std::map<int, std::string> StringMap;
 		
 		union ZFile {
 			FILE *unzipped;
 			gzFile zipped;
 		};
-		
-		typedef std::map<int, NiftiDataTypeInfo> DTMap;
-		typedef std::map<int, std::string> StringMap;
-		
-		static const DTMap DataTypes;
+			
+		/*static const DTMap DataTypes;
 		static const StringMap Units, Transforms, Intents, SliceOrders;
-		static const bool validDatatype(const int dtype);
+		static const bool validDatatype(const int dtype);*/
 		
 		int _dim[8];               //!< Number of voxels = nx*ny*nz*...*nw
 		float _voxdim[8];          //!< Dimensions of each voxel
@@ -205,7 +204,7 @@ class NiftiImage
 		
 		std::string _basename, _imgname, _hdrname; // Paths to header and image files
 		int _voxoffset;
-		int _datatype;                             // Datatype on disk
+		NiftiDataType _datatype;                   // Datatype on disk
 		int _swap;                                 // True if byte order on disk is different to CPU
 		int _num_ext;
 		nifti1_extension *_ext_list;
@@ -242,33 +241,36 @@ class NiftiImage
 		  *          storage is allocated internally and a pointer returned.
 		  *   @return Pointer to the converted data.
 		  */
-		template<typename T> T* convertFromBytes(const char *bytes, const size_t nEl, T *data = NULL)
+		template<typename T> T* convertFromBytes(char *const bytes, const size_t nEl, T *data = NULL)
 		{
 			if (!data)
 				data = new T[nEl];
 			for (int i = 0; i < nEl; i++) {
-				switch (_datatype) {
-					case NIFTI_TYPE_INT8:      data[i] = (T)((char *)bytes)[i]; break;
-					case NIFTI_TYPE_UINT8:     data[i] = (T)((unsigned char *)bytes)[i]; break;
-					case NIFTI_TYPE_INT16:     data[i] = (T)((short *)bytes)[i]; break;
-					case NIFTI_TYPE_UINT16:    data[i] = (T)((unsigned short *)bytes)[i]; break;
+				switch (_datatype.code) {
+					case NIFTI_TYPE_INT8:      data[i] = static_cast<T>(reinterpret_cast<char *>(bytes)[i]); break;
+					case NIFTI_TYPE_UINT8:     data[i] = static_cast<T>(reinterpret_cast<unsigned char *>(bytes)[i]); break;
+					case NIFTI_TYPE_INT16:     data[i] = static_cast<T>(reinterpret_cast<short *>(bytes)[i]); break;
+					case NIFTI_TYPE_UINT16:    data[i] = static_cast<T>(reinterpret_cast<unsigned short *>(bytes)[i]); break;
 					//case NIFTI_TYPE_RGB24:     break ;
 					//case NIFTI_TYPE_RGBA32:    break ;
-					case NIFTI_TYPE_INT32:     data[i] = (T)((int *)bytes)[i]; break;
-					case NIFTI_TYPE_UINT32:    data[i] = (T)((unsigned int *)bytes)[i]; break;
-					case NIFTI_TYPE_FLOAT32:   data[i] = (T)((float *)bytes)[i]; break;
-					case NIFTI_TYPE_FLOAT64:   data[i] = (T)((double *)bytes)[i]; break;
-					case NIFTI_TYPE_INT64:     data[i] = (T)((long *)bytes)[i]; break;
-					case NIFTI_TYPE_UINT64:    data[i] = (T)((unsigned long *)bytes)[i]; break;
-					case NIFTI_TYPE_FLOAT128:  data[i] = (T)((long double *)bytes)[i]; break;
-						
+					case NIFTI_TYPE_INT32:     data[i] = static_cast<T>(reinterpret_cast<int *>(bytes)[i]); break;
+					case NIFTI_TYPE_UINT32:    data[i] = static_cast<T>(reinterpret_cast<unsigned int *>(bytes)[i]); break;
+					case NIFTI_TYPE_FLOAT32:   data[i] = static_cast<T>(reinterpret_cast<float *>(bytes)[i]); break;
+					case NIFTI_TYPE_FLOAT64:   data[i] = static_cast<T>(reinterpret_cast<double *>(bytes)[i]); break;
+					case NIFTI_TYPE_INT64:     data[i] = static_cast<T>(reinterpret_cast<long *>(bytes)[i]); break;
+					case NIFTI_TYPE_UINT64:    data[i] = static_cast<T>(reinterpret_cast<unsigned long *>(bytes)[i]); break;
+					case NIFTI_TYPE_FLOAT128:  data[i] = static_cast<T>(reinterpret_cast<long double *>(bytes)[i]); break;
 					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
-					// should be interchangeable even at pointer level, so the following
-					// should work.
-					//case DT_COMPLEX64: data[i] = (T)((std::complex<float> *)bytes)[i]; break;
-					//case DT_COMPLEX128: data[i] = (T)((std::complex<double> *)bytes)[i]; break;
-					//case DT_COMPLEX256: data[i] = (T)((std::complex<long double> *)bytes)[i]; break;
-					default: NIFTI_FAIL("unknown datatype"); break;
+					// should be interchangeable even at pointer level
+					case NIFTI_TYPE_COMPLEX64:
+					case NIFTI_TYPE_COMPLEX128:
+					case NIFTI_TYPE_COMPLEX256:
+						NIFTI_FAIL("complex datatypes not supported yet.");
+						break;
+					case NIFTI_TYPE_RGB24:
+					case NIFTI_TYPE_RGBA32:
+						NIFTI_FAIL("RGB/RGBA datatypes not supported yet.");
+						break;
 				}
 			}
 			return data;
@@ -285,13 +287,22 @@ class NiftiImage
 		  *          allocated internally and a pointer returned.
 		  *   @return Pointer to the data stored in a byte array.
 		  */
-		template<typename T> char *convertToBytes(const T *data, const size_t nEl, char *bytes = NULL)
+		template<typename T> char *convertToBytes(T *const data, const size_t nEl, char *bytes = NULL)
 		{
 			if (!bytes)
-				bytes = new char[nEl * DataTypes.find(_datatype)->second.size];
-			
+				bytes = new char[nEl * _datatype.size];
 			for (int i = 0; i < nEl; i++) {
-				switch (_datatype) {
+				switch (_datatype.code) {
+					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
+					// should be interchangeable even at pointer level
+					case NIFTI_TYPE_COMPLEX64:
+					case NIFTI_TYPE_COMPLEX128:
+					case NIFTI_TYPE_COMPLEX256:
+						NIFTI_FAIL("complex datatypes not supported yet."); break;
+					case NIFTI_TYPE_RGB24:
+					case NIFTI_TYPE_RGBA32:
+						NIFTI_FAIL("RGB/RGBA datatypes not supported yet."); break;
+					
 					case NIFTI_TYPE_INT8:              ((char *)bytes)[i] = data[i]; break;
 					case NIFTI_TYPE_UINT8:    ((unsigned char *)bytes)[i] = data[i]; break;
 					case NIFTI_TYPE_INT16:            ((short *)bytes)[i] = data[i]; break;
@@ -305,13 +316,6 @@ class NiftiImage
 					case NIFTI_TYPE_INT64:             ((long *)bytes)[i] = data[i]; break;
 					case NIFTI_TYPE_UINT64:   ((unsigned long *)bytes)[i] = data[i]; break;
 					case NIFTI_TYPE_FLOAT128:   ((long double *)bytes)[i] = data[i]; break;
-					// NOTE: C++11 specifies that C++ 'complex<type>' and C 'type complex'
-					// should be interchangeable even at pointer level, so the following
-					// should work.
-					//case DT_COMPLEX64: bytes[i] = (T)((std::complex<float> *)data)[i]; break;
-					//case DT_COMPLEX128: bytes[i] = (T)((std::complex<double> *)data)[i]; break;
-					//case DT_COMPLEX256: bytes[i] = (T)((std::complex<long double> *)data)[i]; break;
-					default: NIFTI_FAIL("unknown datatype"); break;
 				}
 			}
 			return bytes;
@@ -418,8 +422,7 @@ class NiftiImage
 		
 		template<typename T> T *readVolume(const int &vol, T *converted = NULL)
 		{
-			size_t bytesPerVolume = voxelsPerVolume() *
-			                        DataTypes.find(_datatype)->second.size;
+			size_t bytesPerVolume = voxelsPerVolume() * _datatype.size;
 			char *raw = readBytes(vol * bytesPerVolume, bytesPerVolume);
 			converted = convertFromBytes<T>(raw, voxelsPerVolume(), converted);
 			delete[] raw;
@@ -428,7 +431,7 @@ class NiftiImage
 		
 		template<typename T> T *readAllVolumes()
 		{
-			char *raw =	readBytes(0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
+			char *raw =	readBytes(0, voxelsTotal() * _datatype.size);
 			T *converted = convertFromBytes<T>(raw, voxelsTotal());
 			delete[] raw;
 			return converted;
@@ -438,16 +441,15 @@ class NiftiImage
 		                                      const int &ex, const int &ey, const int &ez, const int &et,
 											  T *converted = NULL)
 		{
-			size_t lx, ly, lz, lt, total, toRead, dBytes;
+			size_t lx, ly, lz, lt, total, toRead;
 			lx = ((ex == -1) ? nx() : ex) - sx;
 			ly = ((ey == -1) ? ny() : ey) - sy;
 			lz = ((ez == -1) ? nz() : ez) - sz;
 			lt = ((et == -1) ? nt() : et) - st;
 			total = lx * ly * lz * lt;
-			dBytes = DataTypes.find(_datatype)->second.size;
 			
 			// Collapse successive full dimensions into a single compressed read
-			toRead = lx * dBytes;
+			toRead = lx * _datatype.size;
 			if (lx == nx()) {
 				toRead *= ly;
 				if (ly == ny()) {
@@ -462,7 +464,7 @@ class NiftiImage
 				ly = 1;
 			}
 						
-			char *raw = new char[total * dBytes];
+			char *raw = new char[total * _datatype.size];
 			char *nextRead = raw;
 			for (int t = st; t < st+lt; t++)
 			{
@@ -473,7 +475,7 @@ class NiftiImage
 					for (int y = sy; y < sy+ly; y++)
 					{
 						size_t yOff = y * nx();
-						if (readBytes((tOff + zOff + yOff) * dBytes, toRead, nextRead))
+						if (readBytes((tOff + zOff + yOff) * _datatype.size, toRead, nextRead))
 							nextRead += toRead;
 						else
 							NIFTI_FAIL("failed to read subvolume from file.");
@@ -487,7 +489,7 @@ class NiftiImage
 		
 		template<typename T> void writeVolume(const int vol, T *data)
 		{
-			size_t bytesPerVolume = voxelsPerVolume() * DataTypes.find(_datatype)->second.size;
+			size_t bytesPerVolume = voxelsPerVolume() * _datatype.size;
 			char *converted = convertToBytes<T>(data, voxelsPerVolume());
 			writeBytes(converted, vol * bytesPerVolume, bytesPerVolume);
 			delete[] converted;
@@ -496,7 +498,7 @@ class NiftiImage
 		template<typename T> void writeAllVolumes(T *data)
 		{
 			char *converted = convertToBytes<T>(data, voxelsTotal());
-			writeBytes(converted, 0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
+			writeBytes(converted, 0, voxelsTotal() * _datatype.size);
 			delete[] converted;
 		}
 		
@@ -504,16 +506,15 @@ class NiftiImage
 												 const int &ex, const int &ey, const int &ez, const int &et,
 											     T *data)
 		{
-			size_t lx, ly, lz, lt, total, toWrite, dBytes;
+			size_t lx, ly, lz, lt, total, toWrite;
 			lx = ((ex == -1) ? nx() : ex) - sx;
 			ly = ((ey == -1) ? ny() : ey) - sy;
 			lz = ((ez == -1) ? nz() : ez) - sz;
 			lt = ((et == -1) ? nt() : et) - st;
 			total = lx * ly * lz * lt;
-			dBytes = DataTypes.find(_datatype)->second.size;
 			
 			// Collapse successive full dimensions into a single write
-			toWrite = lx * dBytes;
+			toWrite = lx * _datatype.size;
 			if (lx == nx()) {
 				toWrite *= ly;
 				if (ly == ny()) {
@@ -539,7 +540,7 @@ class NiftiImage
 					for (int y = sy; y < sy+ly; y++)
 					{
 						size_t yOff = y * nx();
-						writeBytes(nextWrite, (tOff + zOff + yOff) * dBytes, toWrite);
+						writeBytes(nextWrite, (tOff + zOff + yOff) * _datatype.size, toWrite);
 						nextWrite += toWrite;
 					}
 				}

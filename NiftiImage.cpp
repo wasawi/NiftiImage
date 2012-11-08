@@ -1,148 +1,20 @@
-#include "NiftiImage.h"   /* typedefs, prototypes, macros, etc. */
+#include "NiftiImage.h"
 
-static const std::string lib_hist = "\
-----------------------------------------------------------------------\n\
-History NiftiImage:\n\
-0.1 18 Sep 2012 [tcw]: Started NiftiImage from niftilib version 1.43  \n\
-----------------------------------------------------------------------\n";
-static const std::string lib_version = "NiftiImage version 0.1 (18 Sep, 2012)";
-
-const NiftiImage::DTMap NiftiImage::DataTypes
-{
-  {NIFTI_TYPE_UINT8,    {1, 0, "NIFTI_TYPE_UINT8"} },
-  {NIFTI_TYPE_INT16,    {2, 2, "NIFTI_TYPE_INT16"} },
-  {NIFTI_TYPE_INT32,    {4, 4, "NIFTI_TYPE_INT32"} },
-  {NIFTI_TYPE_FLOAT32,   {4, 4, "NIFTI_TYPE_FLOAT32"} },
-  {NIFTI_TYPE_COMPLEX64,   {8, 4, "NIFTI_TYPE_COMPLEX64"} },
-  {NIFTI_TYPE_FLOAT64,   {8, 8, "NIFTI_TYPE_FLOAT64"} },
-  {NIFTI_TYPE_RGB24,  {3, 0, "NIFTI_TYPE_RGB24"} },
-  {NIFTI_TYPE_INT8,  {1, 0, "NIFTI_TYPE_INT8"} },
-  {NIFTI_TYPE_UINT16,  {2, 2, "NIFTI_TYPE_UINT16"} },
-  {NIFTI_TYPE_UINT32,  {4, 4, "NIFTI_TYPE_UINT32"} },
-  {NIFTI_TYPE_INT64, {8, 8, "NIFTI_TYPE_INT64"} },
-  {NIFTI_TYPE_UINT64, {8, 8, "NIFTI_TYPE_UINT64"} },
-  {NIFTI_TYPE_FLOAT128, {16, 16, "NIFTI_TYPE_FLOAT128"} },
-  {NIFTI_TYPE_COMPLEX128, {16,  8, "NIFTI_TYPE_COMPLEX128"} },
-  {NIFTI_TYPE_COMPLEX256, {32, 16, "NIFTI_TYPE_COMPLEX256"} },
-  {NIFTI_TYPE_RGBA32, {4,   0, "NIFTI_TYPE_RGBA32"} }
-};
-
+const std::string &NiftiImage::dtypeName() const { return _datatype.name; }
 /*
  * Map for string representations of NIfTI unit codes.
  *
  *\sa NIFTI1_UNITS group in nifti1.h
  */
-const NiftiImage::StringMap NiftiImage::Units
-{
-	{ NIFTI_UNITS_METER,  "m" },
-	{ NIFTI_UNITS_MM,     "mm" },
-	{ NIFTI_UNITS_MICRON, "um" },
-	{ NIFTI_UNITS_SEC,    "s" },
-	{ NIFTI_UNITS_MSEC,   "ms" },
-	{ NIFTI_UNITS_USEC,   "us" },
-	{ NIFTI_UNITS_HZ,     "Hz" },
-	{ NIFTI_UNITS_PPM,    "ppm" },
-	{ NIFTI_UNITS_RADS,   "rad/s" }
-};
-
-/*
- * Map for string representations of NIfTI transform codes.
- *
- *\sa NIFTI1_XFORM_CODES group in nifti1.h
- */
-const NiftiImage::StringMap NiftiImage::Transforms
-{
-	{ NIFTI_XFORM_SCANNER_ANAT, "Scanner Anat" },
-	{ NIFTI_XFORM_ALIGNED_ANAT, "Aligned Anat" },
-	{ NIFTI_XFORM_TALAIRACH,    "Talairach" },
-	{ NIFTI_XFORM_MNI_152,      "MNI_152" }
-};
-
-/*
- * Map for string representations of NIfTI intent types.
- *
- *\sa NIFTI1_INTENT_CODES group in nifti1.h
- */
-const NiftiImage::StringMap NiftiImage::Intents
-{
-	{ NIFTI_INTENT_CORREL,     "Correlation statistic" },
-	{ NIFTI_INTENT_TTEST,      "T-statistic" },
-	{ NIFTI_INTENT_FTEST,      "F-statistic" },
-	{ NIFTI_INTENT_ZSCORE,     "Z-score"     },
-	{ NIFTI_INTENT_CHISQ,      "Chi-squared distribution" },
-	{ NIFTI_INTENT_BETA,       "Beta distribution" },
-	{ NIFTI_INTENT_BINOM,      "Binomial distribution" },
-	{ NIFTI_INTENT_GAMMA,      "Gamma distribution" },
-	{ NIFTI_INTENT_POISSON,    "Poisson distribution" },
-	{ NIFTI_INTENT_NORMAL,     "Normal distribution" },
-	{ NIFTI_INTENT_FTEST_NONC, "F-statistic noncentral" },
-	{ NIFTI_INTENT_CHISQ_NONC, "Chi-squared noncentral" },
-	{ NIFTI_INTENT_LOGISTIC,   "Logistic distribution" },
-	{ NIFTI_INTENT_LAPLACE,    "Laplace distribution" },
-	{ NIFTI_INTENT_UNIFORM,    "Uniform distribition" },
-	{ NIFTI_INTENT_TTEST_NONC, "T-statistic noncentral" },
-	{ NIFTI_INTENT_WEIBULL,    "Weibull distribution" },
-	{ NIFTI_INTENT_CHI,        "Chi distribution" },
-	{ NIFTI_INTENT_INVGAUSS,   "Inverse Gaussian distribution" },
-	{ NIFTI_INTENT_EXTVAL,     "Extreme Value distribution" },
-	{ NIFTI_INTENT_PVAL,       "P-value" },
-			
-	{ NIFTI_INTENT_LOGPVAL,    "Log P-value" },
-	{ NIFTI_INTENT_LOG10PVAL,  "Log10 P-value" },
-			
-	{ NIFTI_INTENT_ESTIMATE,   "Estimate" },
-	{ NIFTI_INTENT_LABEL,      "Label index" },
-	{ NIFTI_INTENT_NEURONAME,  "NeuroNames index" },
-	{ NIFTI_INTENT_GENMATRIX,  "General matrix" },
-	{ NIFTI_INTENT_SYMMATRIX,  "Symmetric matrix" },
-	{ NIFTI_INTENT_DISPVECT,   "Displacement vector" },
-	{ NIFTI_INTENT_VECTOR,     "Vector" },
-	{ NIFTI_INTENT_POINTSET,   "Pointset" },
-	{ NIFTI_INTENT_TRIANGLE,   "Triangle" },
-	{ NIFTI_INTENT_QUATERNION, "Quaternion" },
-			
-	{ NIFTI_INTENT_DIMLESS,    "Dimensionless number" }
-};
-
-/*
- * Map for string representations of NIfTI slice_codes
- *
- *\sa NIFTI1_SLICE_ORDER group in nifti1.h
- */
-const NiftiImage::StringMap NiftiImage::SliceOrders
-{
-	{ NIFTI_SLICE_SEQ_INC,  "sequential_increasing"    },
-	{ NIFTI_SLICE_SEQ_DEC,  "sequential_decreasing"    },
-	{ NIFTI_SLICE_ALT_INC,  "alternating_increasing"   },
-	{ NIFTI_SLICE_ALT_DEC,  "alternating_decreasing"   },
-	{ NIFTI_SLICE_ALT_INC2, "alternating_increasing_2" },
-	{ NIFTI_SLICE_ALT_DEC2, "alternating_decreasing_2" }
-};
-
-
-/*
- * Check that a given datatype is actually valid.
- */
-const bool NiftiImage::validDatatype(const int dtype)
-{
-    DTMap::const_iterator it = DataTypes.find(dtype);
-	if (it == DataTypes.end())
-		return false;
-	else
-		return true;
-}
-
-const std::string &NiftiImage::dtypeName() const
-{
-	static std::string unknown("Unknown datatype code");
-	DTMap::const_iterator it = DataTypes.find(_datatype);
-	if (it == DataTypes.end())
-		return unknown;
-	else
-		return it->second.name;
-}
 const std::string &NiftiImage::spaceUnits() const
 {
+	static const StringMap Units
+	{
+		{ NIFTI_UNITS_METER,  "m" },
+		{ NIFTI_UNITS_MM,     "mm" },
+		{ NIFTI_UNITS_MICRON, "um" }
+	};
+	
 	static std::string unknown("Unknown space units code");
 	StringMap::const_iterator it = Units.find(xyz_units);
 	if (it == Units.end())
@@ -152,6 +24,15 @@ const std::string &NiftiImage::spaceUnits() const
 }
 const std::string &NiftiImage::timeUnits() const
 {
+	static const StringMap Units
+	{
+		{ NIFTI_UNITS_SEC,    "s" },
+		{ NIFTI_UNITS_MSEC,   "ms" },
+		{ NIFTI_UNITS_USEC,   "us" },
+		{ NIFTI_UNITS_HZ,     "Hz" },
+		{ NIFTI_UNITS_PPM,    "ppm" },
+		{ NIFTI_UNITS_RADS,   "rad/s" }
+	};
 	static std::string unknown("Unknown time units code");
 	StringMap::const_iterator it = Units.find(time_units);
 	if (it == Units.end())
@@ -159,8 +40,54 @@ const std::string &NiftiImage::timeUnits() const
 	else
 		return it->second;
 }
+
+/*
+ * Map for string representations of NIfTI intent types.
+ *
+ *\sa NIFTI1_INTENT_CODES group in nifti1.h
+ */
 const std::string &NiftiImage::intentName() const
 {
+	const StringMap Intents
+	{
+		{ NIFTI_INTENT_CORREL,     "Correlation statistic" },
+		{ NIFTI_INTENT_TTEST,      "T-statistic" },
+		{ NIFTI_INTENT_FTEST,      "F-statistic" },
+		{ NIFTI_INTENT_ZSCORE,     "Z-score"     },
+		{ NIFTI_INTENT_CHISQ,      "Chi-squared distribution" },
+		{ NIFTI_INTENT_BETA,       "Beta distribution" },
+		{ NIFTI_INTENT_BINOM,      "Binomial distribution" },
+		{ NIFTI_INTENT_GAMMA,      "Gamma distribution" },
+		{ NIFTI_INTENT_POISSON,    "Poisson distribution" },
+		{ NIFTI_INTENT_NORMAL,     "Normal distribution" },
+		{ NIFTI_INTENT_FTEST_NONC, "F-statistic noncentral" },
+		{ NIFTI_INTENT_CHISQ_NONC, "Chi-squared noncentral" },
+		{ NIFTI_INTENT_LOGISTIC,   "Logistic distribution" },
+		{ NIFTI_INTENT_LAPLACE,    "Laplace distribution" },
+		{ NIFTI_INTENT_UNIFORM,    "Uniform distribition" },
+		{ NIFTI_INTENT_TTEST_NONC, "T-statistic noncentral" },
+		{ NIFTI_INTENT_WEIBULL,    "Weibull distribution" },
+		{ NIFTI_INTENT_CHI,        "Chi distribution" },
+		{ NIFTI_INTENT_INVGAUSS,   "Inverse Gaussian distribution" },
+		{ NIFTI_INTENT_EXTVAL,     "Extreme Value distribution" },
+		{ NIFTI_INTENT_PVAL,       "P-value" },
+				
+		{ NIFTI_INTENT_LOGPVAL,    "Log P-value" },
+		{ NIFTI_INTENT_LOG10PVAL,  "Log10 P-value" },
+				
+		{ NIFTI_INTENT_ESTIMATE,   "Estimate" },
+		{ NIFTI_INTENT_LABEL,      "Label index" },
+		{ NIFTI_INTENT_NEURONAME,  "NeuroNames index" },
+		{ NIFTI_INTENT_GENMATRIX,  "General matrix" },
+		{ NIFTI_INTENT_SYMMATRIX,  "Symmetric matrix" },
+		{ NIFTI_INTENT_DISPVECT,   "Displacement vector" },
+		{ NIFTI_INTENT_VECTOR,     "Vector" },
+		{ NIFTI_INTENT_POINTSET,   "Pointset" },
+		{ NIFTI_INTENT_TRIANGLE,   "Triangle" },
+		{ NIFTI_INTENT_QUATERNION, "Quaternion" },
+				
+		{ NIFTI_INTENT_DIMLESS,    "Dimensionless number" }
+	};
 	static std::string unknown("Unknown intent code");
 	StringMap::const_iterator it = Intents.find(intent_code);
 	if (it == Intents.end())
@@ -168,8 +95,21 @@ const std::string &NiftiImage::intentName() const
 	else
 		return it->second;
 }
+
+/*
+ * Map for string representations of NIfTI transform codes.
+ *
+ *\sa NIFTI1_XFORM_CODES group in nifti1.h
+ */
 const std::string &NiftiImage::transformName() const
 {
+	static const StringMap Transforms
+	{
+		{ NIFTI_XFORM_SCANNER_ANAT, "Scanner Anat" },
+		{ NIFTI_XFORM_ALIGNED_ANAT, "Aligned Anat" },
+		{ NIFTI_XFORM_TALAIRACH,    "Talairach" },
+		{ NIFTI_XFORM_MNI_152,      "MNI_152" }
+	};
 	static std::string unknown("Unknown transform code");
 	StringMap::const_iterator it = Transforms.find(sform_code);
 	if (it == Transforms.end())
@@ -177,8 +117,23 @@ const std::string &NiftiImage::transformName() const
 	else
 		return it->second;
 }
+
+/*
+ * Map for string representations of NIfTI slice_codes
+ *
+ *\sa NIFTI1_SLICE_ORDER group in nifti1.h
+ */
 const std::string &NiftiImage::sliceName() const
 {
+	static const StringMap SliceOrders
+	{
+		{ NIFTI_SLICE_SEQ_INC,  "sequential_increasing"    },
+		{ NIFTI_SLICE_SEQ_DEC,  "sequential_decreasing"    },
+		{ NIFTI_SLICE_ALT_INC,  "alternating_increasing"   },
+		{ NIFTI_SLICE_ALT_DEC,  "alternating_decreasing"   },
+		{ NIFTI_SLICE_ALT_INC2, "alternating_increasing_2" },
+		{ NIFTI_SLICE_ALT_DEC2, "alternating_decreasing_2" }
+	};
 	static std::string unknown("Unknown slice order code");
 	StringMap::const_iterator it = SliceOrders.find(slice_code);
 	if (it == SliceOrders.end())
@@ -1022,10 +977,10 @@ NiftiImage::NiftiImage() :
 	_voxdim(),
 	_mode(NIFTI_CLOSED),
 	_gz(false),
-	_datatype(NIFTI_TYPE_FLOAT32),
 	_swap(false)
 {
 	_qform.setIdentity(); _sform.setIdentity();
+	setDatatype(NIFTI_TYPE_FLOAT32);
 }
 
 NiftiImage::NiftiImage(const std::string &filename, const char &mode) :
@@ -1039,7 +994,7 @@ NiftiImage::NiftiImage(const int nx, const int ny, const int nz, const int nt,
 		               const int datatype) :
 	NiftiImage()
 {
-	_datatype = datatype;
+	setDatatype(datatype);
 	_qform.setIdentity(); _sform.setIdentity();
 	_dim[1] = nx; _dim[2] = ny; _dim[3] = nz; _dim[4] = nt;
 	_dim[0] = (nt > 1) ? 4 : 3;
@@ -1084,7 +1039,6 @@ NiftiImage &NiftiImage::operator=(const NiftiImage &other)
 	
 	_qform = other._qform;
 	_sform = other._sform;
-	_datatype = other._datatype;
 	_mode = NIFTI_CLOSED;
 	_gz = false;
 	_voxoffset = 0;
@@ -1111,7 +1065,7 @@ NiftiImage &NiftiImage::operator=(const NiftiImage &other)
 	intent_name = other.intent_name;
 	description = other.description;
 	aux_file = other.aux_file;
-	
+	setDatatype(other.datatype());
 	for (int i = 0; i < 8; i++)
 	{
 		_dim[i] = other._dim[i];
@@ -1348,7 +1302,7 @@ void NiftiImage::readHeader(std::string path)
 	}
 	
 	/**- set the type of data in voxels and how many bytes per voxel */
-	_datatype = nhdr.datatype;
+	setDatatype(nhdr.datatype);
 	
 	/**- compute qto_xyz transformation from pixel indexes (i,j,k) to (x,y,z) */
 	Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
@@ -1464,8 +1418,8 @@ void NiftiImage::writeHeader(std::string path)
 		nhdr.pixdim[i] = _voxdim[i];
 	}
 	
-	nhdr.datatype = _datatype;
-	nhdr.bitpix   = 8 * DataTypes.find(_datatype)->second.size;
+	nhdr.datatype = _datatype.code;
+	nhdr.bitpix   = 8 * _datatype.size;
 	
 	if(calibration_max > calibration_min) {
 		nhdr.cal_max = calibration_max;
@@ -1555,10 +1509,9 @@ void NiftiImage::writeHeader(std::string path)
 	/* partial file exists, and errors have been printed, so ignore return */
 	//if( nim->nifti_type != NIFTI_FTYPE_ANALYZE )
 	//	(void)nifti_write_extensions(fp,nim);
-	if(bytesWritten < sizeof(nhdr)) {
-		std::cerr << "Could not write header to file " << _hdrname << "." << std::endl;
-		exit(EXIT_FAILURE);
-	}
+	if(bytesWritten < sizeof(nhdr))
+		NIFTI_FAIL("Could not write header to file " + _hdrname + ".");
+	
 	if (_hdrname != _imgname)
 	{	// Close header and open image file
 		if (_gz) {
@@ -1625,9 +1578,8 @@ char *NiftiImage::readBytes(size_t start, size_t length, char *buffer)
 	if (obj_read != 1)
 		NIFTI_ERROR("Read buffer returned wrong number of bytes.");
 	
-	int swapsize = DataTypes.find(_datatype)->second.swapsize;
-	if (swapsize > 1 && _swap)
-		SwapBytes(length / swapsize, swapsize, buffer);
+	if (_datatype.swapsize > 1 && _swap)
+		SwapBytes(length / _datatype.swapsize, _datatype.swapsize, buffer);
 	return buffer;
 }
 
@@ -1667,14 +1619,13 @@ void NiftiImage::writeBytes(char *buffer, size_t start, size_t length)
 
 char *NiftiImage::readRawVolume(const int vol)
 {
-	size_t bytesPerVolume = voxelsPerVolume() *
-	                        DataTypes.find(_datatype)->second.size;
+	size_t bytesPerVolume = voxelsPerVolume() * _datatype.size;
 	char *raw = readBytes(vol * bytesPerVolume, bytesPerVolume);
 	return raw;
 }
 char *NiftiImage::readRawAllVolumes()
 {
-	char *raw =	readBytes(0, voxelsTotal() * DataTypes.find(_datatype)->second.size);
+	char *raw =	readBytes(0, voxelsTotal() * _datatype.size);
 	return raw;
 }
 		
@@ -1712,7 +1663,7 @@ void NiftiImage::close()
 		return;
 	}
 	seek(0, SEEK_END);
-	long correctEnd = (voxelsTotal() * DataTypes.find(_datatype)->second.size + _voxoffset);
+	long correctEnd = (voxelsTotal() * _datatype.size + _voxoffset);
 	char zero = 0;
 	if (_gz) {
 		long pos = gztell(_file.zipped);
@@ -1778,18 +1729,43 @@ float NiftiImage::dx() const { return _voxdim[1]; }
 float NiftiImage::dy() const { return _voxdim[2]; }
 float NiftiImage::dz() const { return _voxdim[3]; }
 
-int NiftiImage::datatype() const { return _datatype; }
+int NiftiImage::datatype() const { return _datatype.code; }
+/*  The map is declared here because making it a static member of NiftiImage was
+ *  causing problems with looking up the datatype in close() when called by 
+ *  ~NiftiImage. It's possible for C++ to destruct static members even when
+ *  objects still exist in another translation unit.
+ */
 void NiftiImage::setDatatype(const int dt)
 {
+	static const DTMap DataTypes{
+		{NIFTI_TYPE_UINT8,    {NIFTI_TYPE_UINT8, 1, 0, "NIFTI_TYPE_UINT8"} },
+		{NIFTI_TYPE_INT16,    {NIFTI_TYPE_INT16, 2, 2, "NIFTI_TYPE_INT16"} },
+		{NIFTI_TYPE_INT32,    {NIFTI_TYPE_INT32, 4, 4, "NIFTI_TYPE_INT32"} },
+		{NIFTI_TYPE_FLOAT32,   {NIFTI_TYPE_FLOAT32, 4, 4, "NIFTI_TYPE_FLOAT32"} },
+		{NIFTI_TYPE_COMPLEX64,   {NIFTI_TYPE_COMPLEX64, 8, 4, "NIFTI_TYPE_COMPLEX64"} },
+		{NIFTI_TYPE_FLOAT64,   {NIFTI_TYPE_FLOAT64, 8, 8, "NIFTI_TYPE_FLOAT64"} },
+		{NIFTI_TYPE_RGB24,  {NIFTI_TYPE_RGB24, 3, 0, "NIFTI_TYPE_RGB24"} },
+		{NIFTI_TYPE_INT8,  {NIFTI_TYPE_INT8, 1, 0, "NIFTI_TYPE_INT8"} },
+		{NIFTI_TYPE_UINT16,  {NIFTI_TYPE_UINT16, 2, 2, "NIFTI_TYPE_UINT16"} },
+		{NIFTI_TYPE_UINT32,  {NIFTI_TYPE_UINT32, 4, 4, "NIFTI_TYPE_UINT32"} },
+		{NIFTI_TYPE_INT64, {NIFTI_TYPE_INT64, 8, 8, "NIFTI_TYPE_INT64"} },
+		{NIFTI_TYPE_UINT64, {NIFTI_TYPE_UINT64, 8, 8, "NIFTI_TYPE_UINT64"} },
+		{NIFTI_TYPE_FLOAT128, {NIFTI_TYPE_FLOAT128, 16, 16, "NIFTI_TYPE_FLOAT128"} },
+		{NIFTI_TYPE_COMPLEX128, {NIFTI_TYPE_COMPLEX128, 16,  8, "NIFTI_TYPE_COMPLEX128"} },
+		{NIFTI_TYPE_COMPLEX256, {NIFTI_TYPE_COMPLEX256, 32, 16, "NIFTI_TYPE_COMPLEX256"} },
+		{NIFTI_TYPE_RGBA32, {NIFTI_TYPE_RGBA32, 4,   0, "NIFTI_TYPE_RGBA32"} }
+	};
+
 	if (_mode == NIFTI_READ)
 	{
 		std::cerr << "NiftiImage: Cannot set the datatype of a file opened for reading." << std::endl;
 		return;
 	}
-	if (validDatatype(dt))
-		_datatype = dt;
+    DTMap::const_iterator it = DataTypes.find(dt);
+	if (it == DataTypes.end())
+		NIFTI_ERROR("Attempted to set invalid datatype.");
 	else
-		std::cerr << "NiftiImage: Attempted to set invalid datatype " << dt << std::endl;
+		_datatype = it->second;
 }
 
 bool NiftiImage::voxelsCompatible(const NiftiImage &other) const
