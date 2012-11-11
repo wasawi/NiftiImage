@@ -365,6 +365,7 @@ class NiftiImage
 		void setDatatype(const int dt);
 		bool compatible(const NiftiImage &other) const; //!< Check if voxel dimensions, data size and transform match
 		bool voxelsCompatible(const NiftiImage &other) const; //!< Looser check if voxel dimensions and data size match
+		void checkVoxelsCompatible(const NiftiImage &other) const; //!< Exits program if voxels differ
 		void checkCompatible(const NiftiImage &other) const; //!< Exits program if headers do not match
 		float dx() const;
 		float dy() const;

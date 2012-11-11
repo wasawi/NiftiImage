@@ -1778,6 +1778,21 @@ bool NiftiImage::voxelsCompatible(const NiftiImage &other) const
 		return false;
 }
 
+void NiftiImage::checkVoxelsCompatible(const NiftiImage &other) const
+{
+	if (!compatible(other)) {
+		std::stringstream message;
+		message << "voxels do not match." << std::endl
+		        << _basename << std::endl
+				<< "Image dims: " << nx() << " " << ny() << " " << nz()
+				<< " Voxel size: " << dx() << " " << dy() << " " << dz()
+				<< other._basename << std::endl
+				<< "Image dims: " << other.nx() << " " << other.ny() << " " << other.nz()
+				<< " Voxel size: " << other.dx() << " " << other.dy() << " " << other.dz();
+		NIFTI_FAIL(message.str());
+	}
+}
+
 bool NiftiImage::compatible(const NiftiImage &other) const
 {
 	if (voxelsCompatible(other) &&
