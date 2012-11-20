@@ -17,7 +17,6 @@
 #include <complex>
 #include <map>
 
-#include <Eigen/Dense>
 #include <Eigen/Geometry>
 
 #include "nifti1.h"                  /*** NIFTI-1 header specification ***/
