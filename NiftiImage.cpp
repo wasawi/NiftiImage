@@ -1323,7 +1323,7 @@ void NiftiImage::readHeader(std::string path)
 		double a = sqrt(1 - (b*b + c*c + d*d));
 		Quaterniond Q(a, b, c, d);
 		Affine3d T; T = Translation3d(x, y, z);
-		_qform = T*S*Q;
+		_qform = T*Q*S;
 		if (qfac < 0.)
 			_qform.matrix().block(0, 2, 3, 1) *= -1.;
 		qform_code = nhdr.qform_code;
