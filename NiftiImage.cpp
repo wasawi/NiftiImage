@@ -1790,7 +1790,7 @@ bool NiftiImage::voxelsCompatible(const NiftiImage &other) const
 
 void NiftiImage::checkVoxelsCompatible(const NiftiImage &other) const
 {
-	if (!compatible(other)) {
+	if (!voxelsCompatible(other)) {
 		std::stringstream message;
 		message << "voxels do not match." << std::endl
 		        << _basename << std::endl
