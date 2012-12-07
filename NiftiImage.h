@@ -472,15 +472,6 @@ class NiftiImage
 			return converted;
 		}
 		
-		template<typename T> std::complex<T> *readVolume(const int &vol, std::complex<T> *converted = NULL)
-		{
-			size_t bytesPerVolume = voxelsPerVolume() * _datatype.size;
-			char *raw = readBytes(vol * bytesPerVolume, bytesPerVolume);
-			converted = convertFromBytes<std::complex<T> >(raw, voxelsPerVolume(), converted);
-			delete[] raw;
-			return converted;
-		}
-		
 		template<typename T> T *readAllVolumes()
 		{
 			char *raw =	readBytes(0, voxelsTotal() * _datatype.size);

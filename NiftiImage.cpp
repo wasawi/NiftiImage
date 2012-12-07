@@ -1313,9 +1313,7 @@ void NiftiImage::readHeader(std::string path)
 	setDatatype(nhdr.datatype);
 	
 	/**- compute qto_xyz transformation from pixel indexes (i,j,k) to (x,y,z) */
-	Affine3d S;
-	S.scale(Vector3d(_voxdim[1], _voxdim[2], _voxdim[3]));
-	if( !is_nifti || nhdr.qform_code <= 0 ) {
+	Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);	if( !is_nifti || nhdr.qform_code <= 0 ) {
 		/**- if not nifti or qform_code <= 0, use grid spacing for qto_xyz */
 		_qform = S.matrix();
 		qform_code = NIFTI_XFORM_UNKNOWN ;
@@ -1336,6 +1334,11 @@ void NiftiImage::readHeader(std::string path)
 		if (qfac < 0.)
 			_qform.matrix().block(0, 2, 3, 1) *= -1.;
 		qform_code = nhdr.qform_code;
+		std::cout << "In read header: " << _basename << std::endl;
+		std::cout << "Qform" << std::endl << _qform.matrix() << std::endl;
+		std::cout << "Q" << std::endl << Q.matrix() << std::endl;
+		std::cout << "T" << std::endl << T.matrix() << std::endl;
+		std::cout << "S" << std::endl << S.matrix() << std::endl;
 	}
 	/**- load sto_xyz affine transformation, if present */
 	if( !is_nifti || nhdr.sform_code <= 0 )
@@ -1465,11 +1468,15 @@ void NiftiImage::writeHeader(std::string path)
 	nhdr.toffset    = toffset ;
 	
 	if(qform_code > 0) {
+		std::cout << "In write header: " << _basename << std::endl;
+		std::cout << "QForm " << std::endl << _qform.matrix() << std::endl;
 		nhdr.qform_code = qform_code;
 		Quaterniond Q(_qform.rotation());
 		Translation3d T(_qform.translation());
-		Affine3d S;
-		S.scale(Vector3d(_voxdim[1], _voxdim[2], _voxdim[3]));
+		Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
+		std::cout << "Q" << std::endl << Q.matrix() << std::endl;
+		std::cout << "T" << std::endl << _qform.translation() << std::endl;
+		std::cout << "S" << std::endl << S.matrix() << std::endl;
 
 		// NIfTI REQUIRES a (or w) >= 0. Because Q and -Q represent the same
 		// rotation, if w < 0 simply store -Q

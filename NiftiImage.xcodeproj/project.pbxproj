@@ -127,6 +127,7 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				HEADER_SEARCH_PATHS = ../eigen;
 				INSTALL_PATH = "$(TARGET_NAME)";
 				PRIVATE_HEADERS_FOLDER_PATH = include;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -142,6 +143,7 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				HEADER_SEARCH_PATHS = ../eigen;
 				INSTALL_PATH = "$(TARGET_NAME)";
 				PRIVATE_HEADERS_FOLDER_PATH = include;
 				PRODUCT_NAME = "$(TARGET_NAME)";
