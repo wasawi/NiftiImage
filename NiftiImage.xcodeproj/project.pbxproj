@@ -127,7 +127,6 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				HEADER_SEARCH_PATHS = ../eigen;
 				INSTALL_PATH = "$(TARGET_NAME)";
 				PRIVATE_HEADERS_FOLDER_PATH = include;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -143,7 +142,6 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				HEADER_SEARCH_PATHS = ../eigen;
 				INSTALL_PATH = "$(TARGET_NAME)";
 				PRIVATE_HEADERS_FOLDER_PATH = include;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -155,7 +153,7 @@
 		F6E9DAA416022CD1005D73E3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
+				ALWAYS_SEARCH_USER_PATHS = YES;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -174,16 +172,17 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/../../eigen";
+				HEADER_SEARCH_PATHS = /Users/Tobias/Code/MR/eigen;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				ONLY_ACTIVE_ARCH = YES;
+				USER_HEADER_SEARCH_PATHS = /Users/Tobias/Code/MR/eigen;
 			};
 			name = Debug;
 		};
 		F6E9DAA516022CD1005D73E3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
+				ALWAYS_SEARCH_USER_PATHS = YES;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -197,8 +196,9 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/../../eigen";
+				HEADER_SEARCH_PATHS = /Users/Tobias/Code/MR/eigen;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				USER_HEADER_SEARCH_PATHS = /Users/Tobias/Code/MR/eigen;
 			};
 			name = Release;
 		};

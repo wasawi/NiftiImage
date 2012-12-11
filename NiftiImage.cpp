@@ -1,12 +1,12 @@
 #include "NiftiImage.h"
 
-const std::string &NiftiImage::dtypeName() const { return _datatype.name; }
+const string &NiftiImage::dtypeName() const { return _datatype.name; }
 /*
  * Map for string representations of NIfTI unit codes.
  *
  *\sa NIFTI1_UNITS group in nifti1.h
  */
-const std::string &NiftiImage::spaceUnits() const
+const string &NiftiImage::spaceUnits() const
 {
 	static const StringMap Units
 	{
@@ -15,14 +15,14 @@ const std::string &NiftiImage::spaceUnits() const
 		{ NIFTI_UNITS_MICRON, "um" }
 	};
 	
-	static std::string unknown("Unknown space units code");
+	static string unknown("Unknown space units code");
 	StringMap::const_iterator it = Units.find(xyz_units);
 	if (it == Units.end())
 		return unknown;
 	else
 		return it->second;
 }
-const std::string &NiftiImage::timeUnits() const
+const string &NiftiImage::timeUnits() const
 {
 	static const StringMap Units
 	{
@@ -33,7 +33,7 @@ const std::string &NiftiImage::timeUnits() const
 		{ NIFTI_UNITS_PPM,    "ppm" },
 		{ NIFTI_UNITS_RADS,   "rad/s" }
 	};
-	static std::string unknown("Unknown time units code");
+	static string unknown("Unknown time units code");
 	StringMap::const_iterator it = Units.find(time_units);
 	if (it == Units.end())
 		return unknown;
@@ -46,7 +46,7 @@ const std::string &NiftiImage::timeUnits() const
  *
  *\sa NIFTI1_INTENT_CODES group in nifti1.h
  */
-const std::string &NiftiImage::intentName() const
+const string &NiftiImage::intentName() const
 {
 	const StringMap Intents
 	{
@@ -88,7 +88,7 @@ const std::string &NiftiImage::intentName() const
 				
 		{ NIFTI_INTENT_DIMLESS,    "Dimensionless number" }
 	};
-	static std::string unknown("Unknown intent code");
+	static string unknown("Unknown intent code");
 	StringMap::const_iterator it = Intents.find(intent_code);
 	if (it == Intents.end())
 		return unknown;
@@ -101,7 +101,7 @@ const std::string &NiftiImage::intentName() const
  *
  *\sa NIFTI1_XFORM_CODES group in nifti1.h
  */
-const std::string &NiftiImage::transformName() const
+const string &NiftiImage::transformName() const
 {
 	static const StringMap Transforms
 	{
@@ -110,7 +110,7 @@ const std::string &NiftiImage::transformName() const
 		{ NIFTI_XFORM_TALAIRACH,    "Talairach" },
 		{ NIFTI_XFORM_MNI_152,      "MNI_152" }
 	};
-	static std::string unknown("Unknown transform code");
+	static string unknown("Unknown transform code");
 	StringMap::const_iterator it = Transforms.find(sform_code);
 	if (it == Transforms.end())
 		return unknown;
@@ -123,7 +123,7 @@ const std::string &NiftiImage::transformName() const
  *
  *\sa NIFTI1_SLICE_ORDER group in nifti1.h
  */
-const std::string &NiftiImage::sliceName() const
+const string &NiftiImage::sliceName() const
 {
 	static const StringMap SliceOrders
 	{
@@ -134,7 +134,7 @@ const std::string &NiftiImage::sliceName() const
 		{ NIFTI_SLICE_ALT_INC2, "alternating_increasing_2" },
 		{ NIFTI_SLICE_ALT_DEC2, "alternating_decreasing_2" }
 	};
-	static std::string unknown("Unknown slice order code");
+	static string unknown("Unknown slice order code");
 	StringMap::const_iterator it = SliceOrders.find(slice_code);
 	if (it == SliceOrders.end())
 		return unknown;
@@ -973,8 +973,8 @@ NiftiImage::~NiftiImage()
 }
 
 NiftiImage::NiftiImage() :
-	_dim(),
-	_voxdim(),
+	_dim{0, 0, 0, 0, 0, 0, 0, 0},
+	_voxdim{0., 1., 1., 1., 0., 0., 0., 0.},
 	_mode(NIFTI_CLOSED),
 	_gz(false),
 	_swap(false)
@@ -983,7 +983,7 @@ NiftiImage::NiftiImage() :
 	setDatatype(NIFTI_TYPE_FLOAT32);
 }
 
-NiftiImage::NiftiImage(const std::string &filename, const char &mode) :
+NiftiImage::NiftiImage(const string &filename, const char &mode) :
 	_dim(),
 	_voxdim(),
 	_mode(NIFTI_CLOSED),
@@ -1082,55 +1082,45 @@ NiftiImage &NiftiImage::operator=(const NiftiImage &other)
 	return *this;
 }
 
-bool isGZippedFile(const std::string &fname)
+bool isGZippedFile(const string &fname)
 {
-	if (fname.find_last_of(".") != std::string::npos)
+	if (fname.find_last_of(".") != string::npos)
 	{
-		std::string ext = fname.substr(fname.find_last_of(".") + 1);
-		std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+		string ext = fname.substr(fname.find_last_of(".") + 1);
+		transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 		if (ext == "gz")
 			return true;
 	}
 	return false;
 }
 
-void NiftiImage::setFilenames(const std::string &fname)
+void NiftiImage::setFilenames(const string &fname)
 {	
-	std::string ext = fname.substr(fname.find_last_of(".") + 1);
+	string ext = fname.substr(fname.find_last_of(".") + 1);
 	_basename = fname.substr(0, fname.find_last_of("."));
 	_gz = false;
-	if (ext == "gz")
-	{
+	if (ext == "gz") {
 		_gz = true;
 		ext = _basename.substr(_basename.find_last_of(".") + 1);
 		_basename = _basename.substr(0, _basename.find_last_of("."));
 	}
-	if (ext == "hdr" || ext == "img")
-	{
+	if (ext == "hdr" || ext == "img") {
 		_imgname = _basename + ".img";
 		_hdrname = _basename + ".hdr";
 	}
-	else if (ext == "nii")
-	{
+	else if (ext == "nii") {
 		_imgname = _hdrname = _basename + ".nii";
 	}
-	else
-	{
-		std::cerr << "NiftiImage: Extension " << ext << " is not a valid NIfTI extension." << std::endl;
+	else {
+		cerr << "NiftiImage: Extension " << ext << " is not a valid NIfTI extension." << endl;
 		exit(EXIT_FAILURE);
 	}
-	if (_gz)
-	{
+	if (_gz) {
 		_imgname += ".gz";
 		_hdrname += ".gz";
 	}
 }
-
-const std::string &NiftiImage::basename() { return _basename; }
-
-/* we already assume ints are 4 bytes */
-#undef ZNZ_MAX_BLOCK_SIZE
-#define ZNZ_MAX_BLOCK_SIZE (1<<30)
+const string &NiftiImage::basename() { return _basename; }
 
 size_t NiftiImage::read(void *buff, size_t size, size_t nmemb)
 {
@@ -1140,10 +1130,8 @@ size_t NiftiImage::read(void *buff, size_t size, size_t nmemb)
 		char *cbuf = (char *)buff;
 		unsigned long n2read;
 		int nread;
-		/* gzread/write take unsigned int length, so maybe read in int pieces
-		 (noted by M Hanke, example given by M Adler)   6 July 2010 [rickr] */
 		while(remain > 0) {
-			n2read = (remain < ZNZ_MAX_BLOCK_SIZE) ? remain : ZNZ_MAX_BLOCK_SIZE;
+			n2read = (remain < MaxZippedBytes) ? remain : MaxZippedBytes;
 			nread = gzread(_file.zipped, (void *)cbuf, (unsigned int)n2read);
 			if( nread < 0 ) return nread; /* returns -1 on error */
 			
@@ -1156,7 +1144,7 @@ size_t NiftiImage::read(void *buff, size_t size, size_t nmemb)
 		
 		/* warn of a short read that will seem complete */
 		if( remain > 0 && remain < size )
-			std::cerr << "NiftiImage: Zipped read short by " << remain << " bytes." << std::endl;
+			cerr << "NiftiImage: Zipped read short by " << remain << " bytes." << endl;
 		return nmemb - remain/size;   /* return number of members processed */
 	}
 	else
@@ -1171,7 +1159,7 @@ size_t NiftiImage::write(const void *buff, size_t size, size_t nmemb)
 		unsigned long n2write;
 		int        nwritten;
 		while( remain > 0 ) {
-			n2write = (remain < ZNZ_MAX_BLOCK_SIZE) ? remain : ZNZ_MAX_BLOCK_SIZE;
+			n2write = (remain < MaxZippedBytes) ? remain : MaxZippedBytes;
 			nwritten = gzwrite(_file.zipped, (void *)cbuf, (unsigned int)n2write);
 			
 			/* gzread returns 0 on error, but in case that ever changes... */
@@ -1186,7 +1174,7 @@ size_t NiftiImage::write(const void *buff, size_t size, size_t nmemb)
 		
 		/* warn of a short write that will seem complete */
 		if( remain > 0 && remain < size )
-			std::cerr << "NiftiImage: Zipped write short by " << remain << " bytes." << std::endl;
+			cerr << "NiftiImage: Zipped write short by " << remain << " bytes." << endl;
 		
 		return nmemb - remain/size;   /* return number of members processed */
 	}
@@ -1238,13 +1226,13 @@ long NiftiImage::seek(long offset, int whence)
 
 inline float NiftiImage::fixFloat(const float f)
 {
-	if (std::isfinite(f))
+	if (isfinite(f))
 		return f;
 	else
 		return 0.;
 }
 
-void NiftiImage::readHeader(std::string path)
+void NiftiImage::readHeader(string path)
 {
 	struct nifti_1_header nhdr;
 	
@@ -1289,9 +1277,9 @@ void NiftiImage::readHeader(std::string path)
 		SwapAnalyzeHeader((nifti_analyze75 *)&nhdr);
 	
 	if(nhdr.datatype == DT_BINARY || nhdr.datatype == DT_UNKNOWN  )
-		std::cerr << "Bad datatype in header " << _hdrname << std::endl;
+		cerr << "Bad datatype in header " << _hdrname << endl;
 	if(nhdr.dim[1] <= 0)
-		std::cerr << "Bad first dimension in header " << _hdrname << std::endl;
+		cerr << "Bad first dimension in header " << _hdrname << endl;
 	
 	/* fix bad dim[] values in the defined dimension range */
 	for(int i=2; i <= nhdr.dim[0]; i++)
@@ -1313,7 +1301,8 @@ void NiftiImage::readHeader(std::string path)
 	setDatatype(nhdr.datatype);
 	
 	/**- compute qto_xyz transformation from pixel indexes (i,j,k) to (x,y,z) */
-	Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);	if( !is_nifti || nhdr.qform_code <= 0 ) {
+	Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
+	if( !is_nifti || nhdr.qform_code <= 0 ) {
 		/**- if not nifti or qform_code <= 0, use grid spacing for qto_xyz */
 		_qform = S.matrix();
 		qform_code = NIFTI_XFORM_UNKNOWN ;
@@ -1334,11 +1323,6 @@ void NiftiImage::readHeader(std::string path)
 		if (qfac < 0.)
 			_qform.matrix().block(0, 2, 3, 1) *= -1.;
 		qform_code = nhdr.qform_code;
-		std::cout << "In read header: " << _basename << std::endl;
-		std::cout << "Qform" << std::endl << _qform.matrix() << std::endl;
-		std::cout << "Q" << std::endl << Q.matrix() << std::endl;
-		std::cout << "T" << std::endl << T.matrix() << std::endl;
-		std::cout << "S" << std::endl << S.matrix() << std::endl;
 	}
 	/**- load sto_xyz affine transformation, if present */
 	if( !is_nifti || nhdr.sform_code <= 0 )
@@ -1367,7 +1351,7 @@ void NiftiImage::readHeader(std::string path)
 		intent_p3 = fixFloat(nhdr.intent_p3);
 		toffset   = fixFloat(nhdr.toffset);
 		
-		intent_name = std::string(nhdr.intent_name);
+		intent_name = string(nhdr.intent_name);
 		xyz_units = XYZT_TO_SPACE(nhdr.xyzt_units);
 		time_units = XYZT_TO_TIME(nhdr.xyzt_units);
 		freq_dim  = DIM_INFO_TO_FREQ_DIM (nhdr.dim_info);
@@ -1384,8 +1368,8 @@ void NiftiImage::readHeader(std::string path)
 	calibration_min = fixFloat(nhdr.cal_min);
 	calibration_max = fixFloat(nhdr.cal_max);
 	
-	description = std::string(nhdr.descrip);
-	aux_file    = std::string(nhdr.aux_file);
+	description = string(nhdr.descrip);
+	aux_file    = string(nhdr.aux_file);
 	
 	/**- set ioff from vox_offset (but at least sizeof(header)) */
 	if (_hdrname == _imgname) {
@@ -1416,7 +1400,7 @@ void NiftiImage::readHeader(std::string path)
 	}
 }
 
-void NiftiImage::writeHeader(std::string path)
+void NiftiImage::writeHeader(string path)
 {
 	struct nifti_1_header nhdr;
 	memset(&nhdr,0,sizeof(nhdr)) ;  /* zero out header, to be safe */
@@ -1467,40 +1451,31 @@ void NiftiImage::writeHeader(std::string path)
 	nhdr.xyzt_units = SPACE_TIME_TO_XYZT(xyz_units, time_units);
 	nhdr.toffset    = toffset ;
 	
-	if(qform_code > 0) {
-		std::cout << "In write header: " << _basename << std::endl;
-		std::cout << "QForm " << std::endl << _qform.matrix() << std::endl;
-		nhdr.qform_code = qform_code;
-		Quaterniond Q(_qform.rotation());
-		Translation3d T(_qform.translation());
-		Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
-		std::cout << "Q" << std::endl << Q.matrix() << std::endl;
-		std::cout << "T" << std::endl << _qform.translation() << std::endl;
-		std::cout << "S" << std::endl << S.matrix() << std::endl;
-
-		// NIfTI REQUIRES a (or w) >= 0. Because Q and -Q represent the same
-		// rotation, if w < 0 simply store -Q
-		if (Q.w() < 0) {
-			nhdr.quatern_b  = -Q.x();
-			nhdr.quatern_c  = -Q.y();
-			nhdr.quatern_d  = -Q.z();
-		} else {
-			nhdr.quatern_b = Q.x();
-			nhdr.quatern_c = Q.y();
-			nhdr.quatern_d = Q.z();
-		}
-		nhdr.qoffset_x  = T.x();
-		nhdr.qoffset_y  = T.y();
-		nhdr.qoffset_z  = T.z();
-	}
+	nhdr.qform_code = qform_code;
+	Quaterniond Q(_qform.rotation());
+	Translation3d T(_qform.translation());
+	Affine3d S; S = Scaling<double>(_voxdim[1], _voxdim[2], _voxdim[3]);
 	
-	if(sform_code > 0) {
-		nhdr.sform_code = sform_code;
-		for (int i = 0; i < 4; i++) {
-			nhdr.srow_x[i]  = _sform(0, i);
-			nhdr.srow_y[i]  = _sform(1, i);
-			nhdr.srow_z[i]  = _sform(2, i);
-		}
+	// NIfTI REQUIRES a (or w) >= 0. Because Q and -Q represent the same
+	// rotation, if w < 0 simply store -Q
+	if (Q.w() < 0) {
+		nhdr.quatern_b  = -Q.x();
+		nhdr.quatern_c  = -Q.y();
+		nhdr.quatern_d  = -Q.z();
+	} else {
+		nhdr.quatern_b = Q.x();
+		nhdr.quatern_c = Q.y();
+		nhdr.quatern_d = Q.z();
+	}
+	nhdr.qoffset_x  = T.x();
+	nhdr.qoffset_y  = T.y();
+	nhdr.qoffset_z  = T.z();
+	
+	nhdr.sform_code = sform_code;
+	for (int i = 0; i < 4; i++) {
+		nhdr.srow_x[i]  = _sform(0, i);
+		nhdr.srow_y[i]  = _sform(1, i);
+		nhdr.srow_z[i]  = _sform(2, i);
 	}
 	
 	nhdr.dim_info = FPS_INTO_DIM_INFO(freq_dim, phase_dim, slice_dim);
@@ -1646,7 +1621,7 @@ char *NiftiImage::readRawAllVolumes()
 	return raw;
 }
 		
-bool NiftiImage::open(const std::string &filename, const char &mode)
+bool NiftiImage::open(const string &filename, const char &mode)
 {
 	setFilenames(filename);
 	if (_mode != NIFTI_CLOSED)
@@ -1665,7 +1640,7 @@ bool NiftiImage::open(const std::string &filename, const char &mode)
 		_mode = NIFTI_WRITE;
 		seek(_voxoffset, SEEK_SET);
 	} else {
-		NIFTI_FAIL(std::string("Invalid NiftImage mode '") + mode + "'.");
+		NIFTI_FAIL(string("Invalid NiftImage mode '") + mode + "'.");
 	}
 	return true;
 }
@@ -1726,7 +1701,7 @@ void NiftiImage::setnt(const int nt)
 	}
 	else
 	{
-		std::cerr << "NiftiImage: Cannot change the dimensions of an image once opened." << std::endl;
+		cerr << "NiftiImage: Cannot change the dimensions of an image once opened." << endl;
 		exit(EXIT_FAILURE);
 	}	
 }
@@ -1775,7 +1750,7 @@ void NiftiImage::setDatatype(const int dt)
 
 	if (_mode == NIFTI_READ)
 	{
-		std::cerr << "NiftiImage: Cannot set the datatype of a file opened for reading." << std::endl;
+		cerr << "NiftiImage: Cannot set the datatype of a file opened for reading." << endl;
 		return;
 	}
     DTMap::const_iterator it = DataTypes.find(dt);
@@ -1798,12 +1773,12 @@ bool NiftiImage::voxelsCompatible(const NiftiImage &other) const
 void NiftiImage::checkVoxelsCompatible(const NiftiImage &other) const
 {
 	if (!voxelsCompatible(other)) {
-		std::stringstream message;
-		message << "voxels do not match." << std::endl
-		        << _basename << std::endl
+		stringstream message;
+		message << "voxels do not match." << endl
+		        << _basename << endl
 				<< "Image dims: " << nx() << " " << ny() << " " << nz()
 				<< " Voxel size: " << dx() << " " << dy() << " " << dz()
-				<< other._basename << std::endl
+				<< other._basename << endl
 				<< "Image dims: " << other.nx() << " " << other.ny() << " " << other.nz()
 				<< " Voxel size: " << other.dx() << " " << other.dy() << " " << other.dz();
 		NIFTI_FAIL(message.str());
@@ -1813,7 +1788,7 @@ void NiftiImage::checkVoxelsCompatible(const NiftiImage &other) const
 bool NiftiImage::compatible(const NiftiImage &other) const
 {
 	if (voxelsCompatible(other) &&
-	   ((ijk_to_xyz() - other.ijk_to_xyz()).norm() < (std::numeric_limits<double>::epsilon() * ijk_to_xyz().size())))
+	   ((ijk_to_xyz() - other.ijk_to_xyz()).norm() < (numeric_limits<double>::epsilon() * ijk_to_xyz().size())))
 		// Then we have the same number of voxels, dimensions are the same,
 	    // and get transformed to the same spatial locations.
 		return true;
@@ -1824,16 +1799,16 @@ bool NiftiImage::compatible(const NiftiImage &other) const
 void NiftiImage::checkCompatible(const NiftiImage &other) const
 {
 	if (!compatible(other)) {
-		std::stringstream message;
-		message << "volumes do not match." << std::endl
-		        << _basename << std::endl
+		stringstream message;
+		message << "volumes do not match." << endl
+		        << _basename << endl
 				<< "Image dims: " << nx() << " " << ny() << " " << nz()
 				<< " Voxel size: " << dx() << " " << dy() << " " << dz()
-				<< " Transform:" << std::endl << ijk_to_xyz() << std::endl
-				<< other._basename << std::endl
+				<< " Transform:" << endl << ijk_to_xyz() << endl
+				<< other._basename << endl
 				<< "Image dims: " << other.nx() << " " << other.ny() << " " << other.nz()
 				<< " Voxel size: " << other.dx() << " " << other.dy() << " " << other.dz()
-				<< " Transform:" << std::endl << other.ijk_to_xyz() << std::endl;
+				<< " Transform:" << endl << other.ijk_to_xyz() << endl;
 		NIFTI_FAIL(message.str());
 	}
 }
